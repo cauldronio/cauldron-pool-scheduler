@@ -3,7 +3,7 @@ from django.test import TestCase
 from ..models import Intention
 
 
-class TestIntentions(TestCase):
+class TestBasic(TestCase):
 
     def setUp(self):
         """Define some useful constants"""
