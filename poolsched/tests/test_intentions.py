@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from ..models import Intention, User, IGitHubRaw, IGitHubEnriched
+from ..models import Intention
 
 
 class TestIntentions(TestCase):
@@ -16,8 +16,6 @@ class TestIntentions(TestCase):
             job=None, user=None,
             status=Intention.Status.WAITING
         )
-        # Scale for random tests (no_tests = scale*10)
-        self.scale = 100
 
     def test_create(self):
         """Insert a single Intention into the database"""
@@ -47,13 +45,19 @@ class TestIntentions(TestCase):
         self.assertEqual(intention.status, Intention.Status.WAITING)
 
     def test_previous(self):
-        """Create Intentions with default parameters"""
+        """Create intention with previous intention"""
 
         intention1 = self.intention1
         intention1.save()
         intention2 = self.intention2
         intention2.save()
         intention1.previous.add(intention2)
+
+        previous = intention1.previous.get()
+        self.assertEqual(previous, intention2)
+
+        intention = Intention.objects.get(previous=intention2)
+        self.assertEqual(intention, intention1)
 
     def test_previous_create(self):
         """Previous intentions (simple)"""
@@ -87,71 +91,23 @@ class TestIntentions(TestCase):
             for previous in intention.previous.all():
                 self.assertIn(previous.id, expected[intention.id])
 
-    def test_user(self):
-        """Direct and reverse relationship with users"""
+class TestDeepPrevious(TestCase):
 
-        # Create a user, add it to two intentions
-        user = User.objects.create(username='A')
-        self.intention1.user = user
-        self.intention1.save()
-        self.intention2.user = user
-        self.intention2.save()
-        # Check user for intentions
-        self.assertEqual(self.intention1.user, user)
-        self.assertEqual(self.intention2.user, user)
-        # Check intentions for user
-        self.assertEqual(user.intention_set.get(pk=self.intention1.pk),
-                         self.intention1)
-        self.assertEqual(user.intention_set.get(pk=self.intention2.pk),
-                         self.intention2)
+    def test_create_previous(self):
+        """Give a try to _create_previous.
 
+        Since it is returning [], no new intention should be created."""
 
-class TestCast(TestCase):
+        intention = Intention.objects.create()
+        intention._create_previous()
+        self.assertEqual(Intention.objects.count(), 1)
 
-    def test_basic(self):
-        """Test casting an intention"""
+    def test_deep_previous(self):
+        """Give a try to deep_previous.
 
-        user = User.objects.create(username='A')
-        intention = Intention.objects.create(
-            user=user,
-            status=Intention.Status.READY)
-        casted = intention.cast()
-        self.assertEqual(casted.__class__, Intention)
+        Since _create_previous is returning [], no new intentions
+        should be created."""
 
-    def test_sublist(self):
-        """Test the value of the list of subclasses.
-
-        We're importing models, so we should have all subclasses
-        pulled in by models.
-        """
-
-        expected = ['igithubraw', 'igithubenriched', 'igitlabraw',
-            'igitraw', 'igitenriched'].sort()
-        self.assertEqual(Intention._subfields().sort(), expected)
-
-class TestQueryIntentions(TestCase):
-    """Tests methods in the manager returning querysets with intentions"""
-
-    @classmethod
-    def setUpTestData(cls):
-        """Populate the database"""
-        cls.users = [User.objects.create(username=username)
-                 for username in ['A', 'B', 'C', 'D', 'E']]
-        for user in cls.users:
-            intention = IGitHubRaw.objects.create (
-                user=user,
-                status=Intention.Status.DONE)
-            intention = IGitHubEnriched.objects.create(
-                user=user,
-                status=Intention.Status.READY)
-        for user in cls.users[:3]:
-            intention = IGitHubRaw.objects.create (
-                user=user,
-                status=Intention.Status.READY)
-            intention = IGitHubEnriched.objects.create(
-                user=user,
-                status=Intention.Status.WAITING)
-        for user in cls.users[:1]:
-            intention = IGitHubRaw.objects.create (
-                user=user,
-                status=Intention.Status.READY)
+        intention = Intention.objects.create()
+        intention.deep_previous()
+        self.assertEqual(Intention.objects.count(), 1)

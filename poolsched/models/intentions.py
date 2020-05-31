@@ -9,13 +9,6 @@ logger = getLogger(__name__)
 
 class IntentionManager(models.Manager):
 
-    def create_deep(self, **kwargs):
-        """Create, recursively, all previous intentions"""
-
-        intention = self.create(**kwargs)
-        intentions = intention.create_previous()
-        return [intention] + intentions
-
     def data(self):
         return [intention.data() for intention in self]
 
@@ -53,9 +46,20 @@ class Intention(models.Model):
         abstract = False
     objects = IntentionManager()
 
-    def create_previous(self):
-        "Create all needed previous intentions (no previous intention needed)"
+    def _create_previous(self):
+        """Create all needed previous intentions (no previous intention needed)
+
+        Usually redefined by child classes, called by deep_previous()"""
+
         return []
+
+    def deep_previous(self):
+        """Create, recursively, all previous intentions"""
+
+        intentions = self._create_previous()
+        for intention in intentions:
+            intentions += intention.create_deep()
+        return intentions
 
     _subfields_list = None
 
