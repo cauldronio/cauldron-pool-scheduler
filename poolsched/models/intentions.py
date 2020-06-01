@@ -7,12 +7,6 @@ from . import jobs
 logger = getLogger(__name__)
 
 
-class IntentionManager(models.Manager):
-
-    def data(self):
-        return [intention.data() for intention in self]
-
-
 class Intention(models.Model):
     """Intention: Somethig you want to achieve
 
@@ -44,7 +38,6 @@ class Intention(models.Model):
 
     class Meta:
         abstract = False
-    objects = IntentionManager()
 
     def _create_previous(self):
         """Create all needed previous intentions (no previous intention needed)

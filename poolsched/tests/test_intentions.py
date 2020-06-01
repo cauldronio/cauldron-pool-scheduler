@@ -111,3 +111,24 @@ class TestDeepPrevious(TestCase):
         intention = Intention.objects.create()
         intention.deep_previous()
         self.assertEqual(Intention.objects.count(), 1)
+
+class TestCast(TestCase):
+    """Test _subfields and _subfields_list"""
+
+    def test_subfields(self):
+        """Test _subfields()"""
+
+        self.assertEqual(Intention._subfields(), [])
+
+    def test_subfields_list(self):
+        """Test _subfields() and _subfields_list"""
+
+        Intention._subfields()
+        self.assertEqual(Intention._subfields_list, [])
+
+    def test_cast(self):
+        """Test cast"""
+
+        intention = Intention()
+        casted = intention.cast()
+        self.assertEqual(casted, intention)
