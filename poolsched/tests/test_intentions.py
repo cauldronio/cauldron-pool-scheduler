@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from ..models import Intention
+from ..models.intentions import Intention
 
 
 class TestBasic(TestCase):
@@ -115,16 +115,21 @@ class TestDeepPrevious(TestCase):
 class TestCast(TestCase):
     """Test _subfields and _subfields_list"""
 
+    @classmethod
+    def setUpTestData(cls):
+
+        cls.subfields = ['iraw', 'ienriched']
+
     def test_subfields(self):
         """Test _subfields()"""
 
-        self.assertEqual(Intention._subfields(), [])
+        self.assertCountEqual(Intention._subfields(), self.subfields)
 
     def test_subfields_list(self):
         """Test _subfields() and _subfields_list"""
 
         Intention._subfields()
-        self.assertEqual(Intention._subfields_list, [])
+        self.assertCountEqual(Intention._subfields_list, self.subfields)
 
     def test_cast(self):
         """Test cast"""

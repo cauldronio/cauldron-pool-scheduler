@@ -1,4 +1,5 @@
 from django.test import TestCase
+from django.db import IntegrityError
 
 from ...models.targets.github import Instance
 
@@ -11,7 +12,7 @@ class TestBasic(TestCase):
         instance = Instance.objects.get(name='GitHub')
         self.assertEqual(instance.endpoint, GITHUB_INSTANCE.endpoint)
 
-    def add_one(self):
+    def test_add_one(self):
         """Add a new instance"""
         instance = Instance.objects.create(name='GitHub A',
                                            endpoint='https://api.gha.com')
@@ -19,3 +20,12 @@ class TestBasic(TestCase):
         self.assertEqual(Instance.objects.count(), 2)
         found = Instance.objects.get(name='GitHub A')
         self.assertEqual(found, instance)
+
+    def test_unique(self):
+        """Instance name is unique"""
+
+        instance = Instance.objects.create(name='GitHub A',
+                                           endpoint='https://api.gha.com')
+        with self.assertRaises(IntegrityError):
+            instance = Instance.objects.create(name='GitHub A',
+                                               endpoint='https://api.gha.com')

@@ -9,6 +9,7 @@ from ..users import User
 
 logger = getLogger(__name__)
 
+TABLE_PREFIX = 'poolsched_github_'
 
 class Instance(models.Model):
     """Instance of GitHub, or GitHub Enterprise"""
@@ -17,7 +18,7 @@ class Instance(models.Model):
     endpoint = models.CharField(max_length=200)
 
     class Meta:
-        db_table = 'github_instance'
+        db_table = TABLE_PREFIX + 'instance'
 
 
 class Repo(models.Model):
@@ -28,9 +29,11 @@ class Repo(models.Model):
     instance = models.ForeignKey(
         Instance, on_delete=models.SET_NULL,
         default=None, null=True, blank=True)
+    created = models.DateTimeField(default=now, blank=True)
 
     class Meta:
-        db_table = 'github_repo'
+        db_table = TABLE_PREFIX + 'repo'
+        unique_together = ('owner', 'repo', 'instance')
 
 class Token(models.Model):
     """GitHub token"""
@@ -46,7 +49,7 @@ class Token(models.Model):
         default=None, null=True, blank=True)
 
     class Meta:
-        db_table = 'github_token'
+        db_table = TABLE_PREFIX + 'token'
 
 
 class IRawManager(models.Manager):
@@ -80,7 +83,7 @@ class IRaw(Intention):
                              default=None, null=True, blank=True)
 
     class Meta:
-        db_table = 'github_iraw'
+        db_table = TABLE_PREFIX + 'iraw'
     objects = IRawManager()
 
     class TokenExhaustedException(Job.StopException):
@@ -176,7 +179,7 @@ class IEnriched(Intention):
                              default=None, null=True, blank=True)
 
     class Meta:
-        db_table = 'github_ienriched'
+        db_table = TABLE_PREFIX + 'ienriched'
 
     def create_previous(self):
         "Create all needed previous intentions"

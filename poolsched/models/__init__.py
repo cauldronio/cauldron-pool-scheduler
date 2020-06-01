@@ -1,5 +1,4 @@
 from .intentions import Intention
-#from .tasks.git import IGitRaw, IGitEnriched, RGitRepo
 #from .targets import github.Instance, \
 #    github.Repo, github.Token, \
 #    github.IRaw
