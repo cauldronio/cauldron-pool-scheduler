@@ -44,9 +44,12 @@ class Token(models.Model):
     #rate = models.IntegerField(default=0)
     # Rate limit reset, last time it was checked
     reset = models.DateTimeField(default=now)
+    # Onwer of the token
     user = models.ForeignKey(
         User, on_delete=models.SET_NULL,
         default=None, null=True, blank=True)
+    # Jobs using the token
+    jobs = models.ManyToManyField(Job)
 
     class Meta:
         db_table = TABLE_PREFIX + 'token'
@@ -72,6 +75,7 @@ class IRawManager(models.Manager):
         """
 
         intentions = self.filter(status=Intention.Status.READY,
+                                 user=user,
                                  job=None) \
             .filter(user__token__reset__lt=now())
         return intentions.all()[:max]
@@ -104,6 +108,22 @@ class IRaw(Intention):
     # Maximum number of jobs using a token
     MAX_JOBS_TOKEN = 10
 
+    @classmethod
+    def next_job(cls):
+        """Find the next job of this model.
+
+        To be selected, a job should be waiting, and have a token ready.
+        Usually, this will be chained to the query for the jobs in a worker.
+
+        :return:           selected job (None if none is ready)
+        """
+
+        jobs = Job.objects.filter(status=Job.Status.WAITING) \
+            .filter(token__reset__lt=now())
+        job = jobs.first()
+        return job
+
+
     def create_previous(self):
         "Create all needed previous intentions (no previous intention needed)"
         return []
@@ -119,56 +139,54 @@ class IRaw(Intention):
         :return:          Job object, if it was found, or None, if not
         """
 
-        jobs = Job.objects.filter(resources=self.repo) \
-            .exclude(status=Job.Status.DONE).all()
+#        candidates = IRaw.objects.filter(repo=self.repo, job__isnull=False)
+        candidates = self.repo.iraw_set.exclude(job__isnull=False)
         try:
-            # Job found, assign it (also) to this intention
-            self.job = jobs[0]
+            # Find intention with job for the sme repo, assign job to self
+            self.job = candidates[0].job
         except IndexError:
-            # No job found
+            # No intention with a job for the same repo found
             return None
         self.save()
         # Get tokens for the user, and assign them to job
-        tokens = self.user.resources.filter(rgithubtoken__isnull=False)
+        tokens = Token.objects.filter(user=self.user)
         for token in tokens:
-            self.job.resources.add(token)
+            token.jobs.add(self.job)
         return self.job
 
     def create_job(self, worker):
-        """Create a new job for an intention (fails if cannot be run)
+        """Create a new job for this intention, adds to it
 
-        A IGitHubRaW intention cannot run if there are too many jobs
-        using the available tokens.
+        Adds the job to the intention, too.
+        A IRaW intention cannot run if there are too many jobs
+        using available tokens.
 
         :param worker: Worker willing to create the job.
+        :returns:      Job created, or None
         """
 
-        job = None
-        # Check if there are too many jobs for all tokens
+        # Check for available tokens (with not too many jobs)
         try:
             with transaction.atomic():
-                tokens = self.user.resources.filter(rgithubtoken__isnull=False)
+                tokens = self.user.token_set.all()
                 for token in tokens:
-                    if token.job_set.count() < self.MAX_JOBS_TOKEN:
-                        job = Job.objects.create(worker=worker)
-                        self.job = job
-                        job.resources.add(token)
+                    if token.jobs.count() < self.MAX_JOBS_TOKEN:
+                        # Available token found, create job if needed
+                        if self.job is None:
+                            self.job = Job.objects.create(worker=worker)
+                        token.jobs.add(self.job)
         except IntegrityError:
             return None
-        if job is not None:
-            job.resources.add(self.repo)
-            self.job = job
-        return job
+        return self.job
 
-    def run(self, resources):
+    def run(self, job):
         """Run the code to fulfill this intention
 
         :param resources: Resource objects useful (QuerySet)
         """
 
         repo = self.repo
-        token = resources.filter(rgithubtoken__isnull = False) \
-            .first().rgithubtoken
+        token = job.token_set.filter(reset__lt=now()).first()
         logger.info(f"Running GitHubRaw intention: {repo.owner}/{repo.repo}, token: {token}" )
         # raise TokenExhaustedException(token=token) if token exhausted
 

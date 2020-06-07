@@ -35,3 +35,6 @@ class ArchJob(models.Model):
     created = models.DateTimeField(blank=True)
     # When it was archived (entered this table)
     archived = models.DateTimeField(default=now, blank=True)
+    # Worker archiving it
+    worker = models.ForeignKey(workers.Worker, on_delete=models.SET_NULL,
+                               default=None, null=True, blank=True)
