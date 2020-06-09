@@ -24,15 +24,20 @@ class Instance(models.Model):
 class Repo(models.Model):
     """GitHub repository"""
 
+    # GitHub owner
     owner = models.CharField(max_length=40)
+    # GitHub repo
     repo = models.CharField(max_length=40)
+    # GitHub instance
     instance = models.ForeignKey(
         Instance, on_delete=models.SET_NULL,
         default=None, null=True, blank=True)
+    # When the repo was created in the scheduler
     created = models.DateTimeField(default=now, blank=True)
 
     class Meta:
         db_table = TABLE_PREFIX + 'repo'
+        # The combination (onwer, repo, instance) should be unique
         unique_together = ('owner', 'repo', 'instance')
 
 class Token(models.Model):
@@ -64,7 +69,7 @@ class IRawManager(models.Manager):
     """Model manager for IGitHubRaw"""
 
     def selectable_intentions(self, user, max=1):
-        """Return a query for getting selectable intentions
+        """Return a list of selectable IRaw intentions for a user
 
         A intention is selectable if:
         * its user has a usable token
@@ -75,8 +80,9 @@ class IRawManager(models.Manager):
         It's not important if there is other job for the same repo,
         that will be checked later.
 
-        :param user_id: id for the user to check
-        :returns:       queryset
+        :param user: user to check
+        :param max:  maximum number of intentions to return
+        :returns:    list of IRaw intentions
         """
 
         intentions = self.filter(status=Intention.Status.READY,
@@ -87,7 +93,9 @@ class IRawManager(models.Manager):
 
 
 class IRaw(Intention):
+    """Intention for producing raw indexes for GitHub repos"""
 
+    # Repo to analyze
     repo = models.ForeignKey(Repo, on_delete=models.PROTECT,
                              default=None, null=True, blank=True)
 
@@ -96,6 +104,11 @@ class IRaw(Intention):
     objects = IRawManager()
 
     class TokenExhaustedException(Job.StopException):
+        """Exception to raise if the GitHub token is exhausted
+
+        Will be raised if the token is exhausted while the data
+        for the repo is being retrieved. In this case, likely the
+        retrieval was not finished."""
 
         def __init__(self, token, message="Token exhausted"):
             """
@@ -110,7 +123,7 @@ class IRaw(Intention):
         def __str__(self):
             return self.message
 
-    # Maximum number of jobs using a token
+    # Maximum number of jobs using a token concurrently
     MAX_JOBS_TOKEN = 10
 
     @classmethod
@@ -140,11 +153,9 @@ class IRaw(Intention):
         the intention is assigned to that job, which is returned.
         The user token is assigned to it, too.
 
-        :param intention: intention to be satisfied
         :return:          Job object, if it was found, or None, if not
         """
 
-#        candidates = IRaw.objects.filter(repo=self.repo, job__isnull=False)
         candidates = self.repo.iraw_set.exclude(job__isnull=False)
         try:
             # Find intention with job for the sme repo, assign job to self
@@ -160,7 +171,7 @@ class IRaw(Intention):
         return self.job
 
     def create_job(self, worker):
-        """Create a new job for this intention, adds to it
+        """Create a new job for this intention, add it
 
         Adds the job to the intention, too.
         A IRaW intention cannot run if there are too many jobs
@@ -207,7 +218,7 @@ class IEnriched(Intention):
     def create_previous(self):
         "Create all needed previous intentions"
 
-        raw_intention = IGitHubRaw.objects.create(repo=self.repo,
-                                                  user=self.user)
+        raw_intention = IRaw.objects.create(repo=self.repo,
+                                            user=self.user)
         self.previous.add(raw_intention)
         return [raw_intention]
