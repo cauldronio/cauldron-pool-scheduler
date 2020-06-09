@@ -17,7 +17,7 @@ call_no = 0
 
 def mock_run(intention, job):
     repo = intention.repo
-    token = job.token_set.filter(reset__lt=now()).first()
+    token = job.ghtokens.filter(reset__lt=now()).first()
     logger.debug(f"Mock running GitHubRaw intention: {repo.owner}/{repo.repo}, token: {token}")
     global call_no
     if call_no < 5:
@@ -109,7 +109,7 @@ class TestPoolSched(TestCase):
         self.assertEqual(job.status, Job.Status.WAITING)
         intention = job.intention_set.first()
         self.assertEqual(intention.status,Intention.Status.READY)
-        tokens = job.token_set.all()
+        tokens = job.ghtokens.all()
         self.assertEqual(len(tokens),1)
         self.assertEqual(intention.user, tokens[0].user)
 
@@ -136,7 +136,7 @@ class TestPoolSched(TestCase):
                 # Intention is ready
                 self.assertEqual(intention.status, Intention.Status.READY)
                 # Find if there is at least one token with reset time in the future
-                tokens = intention.user.token_set.all()
+                tokens = intention.user.ghtokens.all()
                 token_ready = False
                 for token in tokens:
                     if token.reset <= now():

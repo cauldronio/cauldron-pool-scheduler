@@ -9,7 +9,7 @@ from ..users import User
 
 logger = getLogger(__name__)
 
-TABLE_PREFIX = 'poolsched_github_'
+TABLE_PREFIX = 'poolsched_gh'
 
 class Instance(models.Model):
     """Instance of GitHub, or GitHub Enterprise"""
@@ -47,9 +47,14 @@ class Token(models.Model):
     # Onwer of the token
     user = models.ForeignKey(
         User, on_delete=models.SET_NULL,
-        default=None, null=True, blank=True)
+        default=None, null=True, blank=True,
+        related_name='ghtokens',
+        related_query_name='ghtoken')
     # Jobs using the token
-    jobs = models.ManyToManyField(Job)
+    jobs = models.ManyToManyField(
+        Job,
+        related_name='ghtokens',
+        related_query_name='ghtoken')
 
     class Meta:
         db_table = TABLE_PREFIX + 'token'
@@ -77,7 +82,7 @@ class IRawManager(models.Manager):
         intentions = self.filter(status=Intention.Status.READY,
                                  user=user,
                                  job=None) \
-            .filter(user__token__reset__lt=now())
+            .filter(user__ghtoken__reset__lt=now())
         return intentions.all()[:max]
 
 
@@ -119,7 +124,7 @@ class IRaw(Intention):
         """
 
         jobs = Job.objects.filter(status=Job.Status.WAITING) \
-            .filter(token__reset__lt=now())
+            .filter(ghtoken__reset__lt=now())
         job = jobs.first()
         return job
 
@@ -168,7 +173,7 @@ class IRaw(Intention):
         # Check for available tokens (with not too many jobs)
         try:
             with transaction.atomic():
-                tokens = self.user.token_set.all()
+                tokens = self.user.ghtokens.all()
                 for token in tokens:
                     if token.jobs.count() < self.MAX_JOBS_TOKEN:
                         # Available token found, create job if needed
@@ -186,7 +191,7 @@ class IRaw(Intention):
         """
 
         repo = self.repo
-        token = job.token_set.filter(reset__lt=now()).first()
+        token = job.ghtokens.filter(reset__lt=now()).first()
         logger.info(f"Running GitHubRaw intention: {repo.owner}/{repo.repo}, token: {token}" )
         # raise TokenExhaustedException(token=token) if token exhausted
 
