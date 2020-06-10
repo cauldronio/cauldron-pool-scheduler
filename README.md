@@ -111,3 +111,24 @@ For this, we will use a "hold and check" procedure:
 If the transaction is committed, the worker starts with the new job.
 If not, we consider this as if the intention was not able of running,
 and start over again.
+
+## Targets
+
+Targets is how kinds of intentions are modelled. A target is, for example,
+GitHub, or Git. Each target will have its own set of concepts. For example,
+for GitHub, we need tokens, repositories, instances (deployments of
+GitHub or GitHub Enterprise). Each target is built around one or more
+"kinds" of intentions. For example, for GitHub, we need intentions to
+get a list of repositories for an owner, to get the enriched index for
+a repo, to get the raw index for a repo, etc. Some of them may have
+precedences: for example, for getting the enriched index, you need the
+raw index first. A target intention may also create (when done) other
+intentions. For example, when the intention to get the list of repos
+for a GitHub owner is done, it could create enriched GitHub index and
+enriched Git indexes for all of them.
+
+Targets are implemented in separate files in `targets` directory.
+Those files are Python modules implementing classes for the intentions
+(inheriting from Intention, with a separate table), and other auxiliary
+classes. For example, for GitHub, we have Instance, Repo, and Token as
+auxiliary model classes, and IRaw and IEnriched as Intention classes.
