@@ -8,17 +8,17 @@ logger = getLogger(__name__)
 
 
 class Intention(models.Model):
-    """Intention: Somethig you want to achieve
+    """Intention: Something you want to achieve
 
     Intentions are states you want to achieve, such as "raw index collected",
-    or "eniriched index built".
+    or "enriched index built".
     """
 
     class Status(models.TextChoices):
-        WAITING = 'WA', "Waiting" # Waiting for previous intentions
-        READY = 'RE', "Ready" # All previous intentions done
-        WORKING = 'WO', "Working" # Some job working for this intention
-        DONE = 'DO', "Done" # This intention is done
+        WAITING = 'WA', "Waiting"  # Waiting for previous intentions
+        READY = 'RE', "Ready"  # All previous intentions done
+        WORKING = 'WO', "Working"  # Some job working for this intention
+        DONE = 'DO', "Done"  # This intention is done
 
     # Will point to a job when a job is allocated. Several intentions
     # may point to the same job
@@ -77,7 +77,7 @@ class Intention(models.Model):
         for field in self._subfields():
             try:
                 attr = getattr(self, field)
-            except:
+            except Exception:
                 # Some subfield is not an attribute, check the rest
                 pass
             else:

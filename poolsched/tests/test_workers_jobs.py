@@ -2,8 +2,9 @@ from django.test import TestCase
 
 from ..models import Worker, Job
 
+
 class TestBasic(TestCase):
-    """Test basic relatinships from jobs to workers, and viceversa"""
+    """Test basic relationships from jobs to workers, and vice versa"""
 
     @classmethod
     def setUpTestData(cls):
@@ -27,26 +28,27 @@ class TestBasic(TestCase):
         worker = Worker.objects.get(job=self.job)
         self.assertEqual(worker, self.worker)
 
-class TestBasic(TestCase):
+
+class TestBasicActions(TestCase):
     """Test with several jobs (creation, deletion, find from worker...)"""
 
     def test_workers(self):
-        """Create and delter several jobs for a worker"""
+        """Create and delete several jobs for a worker"""
 
         worker = Worker.objects.create()
         for round in range(10):
             job = Job(worker=worker)
             job.save()
             jobs = Job.objects.all()
-            self.assertEqual(len(jobs), round+1)
+            self.assertEqual(len(jobs), round + 1)
             self.assertEqual(jobs[round], job)
             the_job = worker.job_set.get(id=job.id)
             self.assertEqual(the_job, job)
 
-        for round in range(10,0,-1):
+        for round in range(10, 0, -1):
             job = Job.objects.filter(id=round)
             job.delete()
             jobs = Job.objects.all()
-            self.assertEqual(len(jobs), round-1)
+            self.assertEqual(len(jobs), round - 1)
 
         self.assertEqual(Worker.objects.all()[0], worker)

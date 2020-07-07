@@ -91,6 +91,7 @@ class TestBasic(TestCase):
             for previous in intention.previous.all():
                 self.assertIn(previous.id, expected[intention.id])
 
+
 class TestDeepPrevious(TestCase):
 
     def test_create_previous(self):
@@ -112,13 +113,15 @@ class TestDeepPrevious(TestCase):
         intention.deep_previous()
         self.assertEqual(Intention.objects.count(), 1)
 
+
 class TestCast(TestCase):
     """Test _subfields and _subfields_list"""
 
     @classmethod
     def setUpTestData(cls):
-
-        cls.subfields = ['iraw', 'ienriched']
+        cls.subfields = ['ghiraw', 'ghienrich',
+                         'gitiraw', 'gitienrich',
+                         'gliraw', 'glienrich']
 
     def test_subfields(self):
         """Test _subfields()"""

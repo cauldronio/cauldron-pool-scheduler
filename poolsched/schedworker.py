@@ -1,17 +1,27 @@
 """
 API for poolsched (scheduling of a pool of tasks)
-
 """
 
-from logging import getLogger
+import logging
 from time import sleep
 
 from django.forms.models import model_to_dict
 
 from .models import Worker, Intention, User, Job, ArchJob
-from .models.targets.github import IRaw as GHIRaw
+from .models.targets.github import GHIRaw, GHIEnrich
+from .models.targets.git import GitIRaw as GitIRaw
+from .models.targets.git import GitIEnrich as GitIEnrich
 
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.INFO)
+
+"""
+The precedence of a job is governed by the following rules:
+- Job that is in the last phase of the analysis
+- Job that needs little time to run
+- Job that doesn't use a token
+"""
+INTENTION_ORDER = [GitIEnrich, GHIEnrich, GitIRaw, GHIRaw]
 
 
 class SchedWorker:
@@ -31,8 +41,8 @@ class SchedWorker:
 
         intentions = []
         for user in users:
-            user_intentions = GHIRaw.objects.selectable_intentions(user=user, max=max)
-            intentions.extend(user_intentions)
+            for intention_type in INTENTION_ORDER:
+                intentions.extend(intention_type.objects.selectable_intentions(user=user, max=max))
             if len(intentions) >= max:
                 break
         return intentions[0:max]
@@ -59,7 +69,6 @@ class SchedWorker:
             if job is None:
                 job = intention.create_job(self.worker)
                 intention.save()
-            if job is not None:
                 break
         return job
 
@@ -93,11 +102,11 @@ class SchedWorker:
 
     def next_job(self):
         """Get the next job to run, among those WAITING"""
-
-#        job = JGitHubRaw.objects.filter(worker=self.worker).next_job()
-        job = GHIRaw.next_job()
-#        waiting = Job.objects.filter(status=Job.Status.WAITING)
-#        job = next_job(waiting)
+        job = None
+        for intention_type in INTENTION_ORDER:
+            job = intention_type.next_job()
+            if job:
+                break
         return job
 
     def run_job(self, job):
@@ -139,10 +148,11 @@ class SchedWorker:
         :param run: run the loop, or not (default: False)
         :param finish: finish when there are no more jobs
         """
-
+        logger.info("Starting scheduler worker...")
         self.worker = Worker.objects.create()
         self.workers.append(self.worker)
         while run:
+            logger.info("Waiting for new tasks...")
             # Get next job, among those available to run
             job = self.next_job()
             logger.debug(f"Job obtained from next_job(): {job}")

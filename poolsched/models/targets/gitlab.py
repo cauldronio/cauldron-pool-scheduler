@@ -9,11 +9,11 @@ from ..users import User
 
 logger = getLogger(__name__)
 
-TABLE_PREFIX = 'poolsched_gh'
+TABLE_PREFIX = 'poolsched_gl'
 
 
-class GHInstance(models.Model):
-    """GHInstance of GitHub, or GitHub Enterprise"""
+class GLInstance(models.Model):
+    """GLInstance of GitLab, or GitLab Enterprise"""
 
     name = models.CharField(max_length=40, unique=True)
     endpoint = models.CharField(max_length=200)
@@ -22,16 +22,16 @@ class GHInstance(models.Model):
         db_table = TABLE_PREFIX + 'instance'
 
 
-class GHRepo(models.Model):
-    """GitHub repository"""
+class GLRepo(models.Model):
+    """GitLab repository"""
 
-    # GitHub owner
+    # GitLab owner
     owner = models.CharField(max_length=40)
-    # GitHub repo
+    # GitLab repo
     repo = models.CharField(max_length=100)
-    # GitHub instance
+    # GitLab instance
     instance = models.ForeignKey(
-        GHInstance, on_delete=models.SET_NULL,
+        GLInstance, on_delete=models.SET_NULL,
         default=None, null=True, blank=True)
     # When the repo was created in the scheduler
     created = models.DateTimeField(default=now, blank=True)
@@ -42,13 +42,13 @@ class GHRepo(models.Model):
         unique_together = ('owner', 'repo', 'instance')
 
 
-class GHToken(models.Model):
-    """GitHub token"""
+class GLToken(models.Model):
+    """GitLab token"""
 
     # Maximum number of jobs using a token concurrently
     MAX_JOBS_TOKEN = 3
 
-    # GHToken string
+    # GLToken string
     token = models.CharField(max_length=40)
     # Rate limit remaining, last time it was checked
     # rate = models.IntegerField(default=0)
@@ -58,23 +58,23 @@ class GHToken(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.SET_NULL,
         default=None, null=True, blank=True,
-        related_name='ghtokens',
-        related_query_name='ghtoken')
+        related_name='gltokens',
+        related_query_name='gltoken')
     # Jobs using the token
     jobs = models.ManyToManyField(
         Job,
-        related_name='ghtokens',
-        related_query_name='ghtoken')
+        related_name='gltokens',
+        related_query_name='gltoken')
 
     class Meta:
         db_table = TABLE_PREFIX + 'token'
 
 
 class IRawManager(models.Manager):
-    """Model manager for IGitHubRaw"""
+    """Model manager for IGitLabRaw"""
 
     def selectable_intentions(self, user, max=1):
-        """Return a list of selectable GHIRaw intentions for a user
+        """Return a list of selectable GLIRaw intentions for a user
 
         A intention is selectable if:
         * its user has a usable token
@@ -87,34 +87,34 @@ class IRawManager(models.Manager):
 
         :param user: user to check
         :param max:  maximum number of intentions to return
-        :returns:    list of GHIRaw intentions
+        :returns:    list of GLIRaw intentions
         """
 
         intentions = self.filter(status=Intention.Status.READY,
                                  user=user,
                                  job=None) \
-            .filter(user__ghtoken__reset__lt=now())
+            .filter(user__gltoken__reset__lt=now())
         return intentions.all()[:max]
 
 
-class GHIRaw(Intention):
-    """Intention for producing raw indexes for GitHub repos"""
+class GLIRaw(Intention):
+    """Intention for producing raw indexes for GitLab repos"""
 
-    # GHRepo to analyze
-    repo = models.ForeignKey(GHRepo, on_delete=models.PROTECT)
+    # GLRepo to analyze
+    repo = models.ForeignKey(GLRepo, on_delete=models.PROTECT)
 
     class Meta:
         db_table = TABLE_PREFIX + 'iraw'
     objects = IRawManager()
 
     class TokenExhaustedException(Job.StopException):
-        """Exception to raise if the GitHub token is exhausted
+        """Exception to raise if the GitLab token is exhausted
 
         Will be raised if the token is exhausted while the data
         for the repo is being retrieved. In this case, likely the
         retrieval was not finished."""
 
-        def __init__(self, token, message="GHToken exhausted"):
+        def __init__(self, token, message="GLToken exhausted"):
             """
             Job could not finish because token was exhausted.
 
@@ -138,7 +138,7 @@ class GHIRaw(Intention):
         """
 
         jobs = Job.objects.filter(status=Job.Status.WAITING) \
-            .filter(ghtoken__reset__lt=now())
+            .filter(gltoken__reset__lt=now())
         job = jobs.first()
         return job
 
@@ -156,7 +156,7 @@ class GHIRaw(Intention):
         :return:          Job object, if it was found, or None, if not
         """
 
-        candidates = self.repo.ghiraw_set.filter(job__isnull=False)
+        candidates = self.repo.gliraw_set.filter(job__isnull=False)
         try:
             # Find intention with job for the same repo, assign job to self
             self.job = candidates[0].job
@@ -165,7 +165,7 @@ class GHIRaw(Intention):
             return None
         self.save()
         # Get tokens for the user, and assign them to job
-        tokens = GHToken.objects.filter(user=self.user)
+        tokens = GLToken.objects.filter(user=self.user)
         for token in tokens:
             token.jobs.add(self.job)
         return self.job
@@ -185,7 +185,7 @@ class GHIRaw(Intention):
         job = None
         try:
             with transaction.atomic():
-                tokens = self.user.ghtokens.all()
+                tokens = self.user.gltokens.all()
                 for token in tokens:
                     if token.jobs.count() < token.MAX_JOBS_TOKEN:
                         # Available token found, create job if needed
@@ -205,16 +205,16 @@ class GHIRaw(Intention):
         """
 
         repo = self.repo
-        token = job.ghtokens.filter(reset__lt=now()).first()
-        logger.info(f"Running GitHubRaw intention: {repo.owner}/{repo.repo}, token: {token}")
+        token = job.gltokens.filter(reset__lt=now()).first()
+        logger.info(f"Running GitLabRaw intention: {repo.owner}/{repo.repo}, token: {token}")
         # raise TokenExhaustedException(token=token) if token exhausted
 
 
 class IEnrichedManager(models.Manager):
-    """Model manager for GHIEnrich"""
+    """Model manager for GLIEnrich"""
 
     def selectable_intentions(self, user, max=1):
-        """Return a list of selectable GHIEnrich intentions for a user
+        """Return a list of selectable GLIEnrich intentions for a user
 
         A intention is selectable if:
         * it's status is ready
@@ -224,7 +224,7 @@ class IEnrichedManager(models.Manager):
 
         :param user: user to check
         :param max:  maximum number of intentions to return
-        :returns:    list of GHIRaw intentions
+        :returns:    list of GLIRaw intentions
         """
 
         intentions = self.filter(status=Intention.Status.READY,
@@ -233,11 +233,11 @@ class IEnrichedManager(models.Manager):
         return intentions.all()[:max]
 
 
-class GHIEnrich(Intention):
-    """Intention for producing enriched indexes for GitHub repos"""
+class GLIEnrich(Intention):
+    """Intention for producing enriched indexes for GitLab repos"""
 
-    # GHRepo to analyze
-    repo = models.ForeignKey(GHRepo, on_delete=models.PROTECT)
+    # GLRepo to analyze
+    repo = models.ForeignKey(GLRepo, on_delete=models.PROTECT)
 
     class Meta:
         db_table = TABLE_PREFIX + 'ienriched'
@@ -260,7 +260,7 @@ class GHIEnrich(Intention):
     def create_previous(self):
         """Create all needed previous intentions"""
 
-        raw_intention = GHIRaw.objects.create(repo=self.repo,
+        raw_intention = GLIRaw.objects.create(repo=self.repo,
                                               user=self.user)
         self.previous.add(raw_intention)
         return [raw_intention]
@@ -274,7 +274,7 @@ class GHIEnrich(Intention):
         :return: Job object, if it was found, or None, if not
         """
 
-        candidates = self.repo.ghienrich_set.filter(job__isnull=False)
+        candidates = self.repo.glienrich_set.filter(job__isnull=False)
         try:
             # Find intention with job for the same repo, assign job to self
             self.job = candidates[0].job
@@ -307,4 +307,4 @@ class GHIEnrich(Intention):
         :return:
         """
 
-        logger.info(f"Running GitHubEnrich intention: {self.repo.owner}/{self.repo.repo}")
+        logger.info(f"Running GitLabEnrich intention: {self.repo.owner}/{self.repo.repo}")

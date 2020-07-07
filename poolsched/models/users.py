@@ -6,6 +6,7 @@ from django.db import models
 
 from .intentions import Intention
 
+
 class UserManager(models.Manager):
 
     def random_user_ready(self, max=1):
@@ -21,10 +22,9 @@ class UserManager(models.Manager):
         q = User.objects.filter(intention__status=Intention.Status.READY,
                                 intention__job=None).distinct()
         count = q.count()
-        users=[q[i] for i in sample(range(count),min(max,count))]
+        users = [q[i] for i in sample(range(count), min(max, count))]
         return users
 
 
 class User(AbstractUser):
-
     objects = UserManager()

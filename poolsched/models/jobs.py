@@ -6,6 +6,7 @@ from . import workers
 
 class Job(models.Model):
 
+    # TODO: Quiza no necesario
     class Status(models.TextChoices):
         WAITING = 'WA', "Waiting"
         WORKING = 'WO', "Working"
@@ -18,9 +19,9 @@ class Job(models.Model):
         specific arguments informing of the stop can be used.
         """
 
-    # When the job was created (usuallu, automatic field)
+    # When the job was created (usually, automatic field)
     created = models.DateTimeField(default=now, blank=True)
-    # Worker dealng with this job, if any
+    # Worker dealing with this job, if any
     worker = models.ForeignKey(workers.Worker, on_delete=models.SET_NULL,
                                default=None, null=True, blank=True)
     # Status of the job

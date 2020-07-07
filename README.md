@@ -130,5 +130,5 @@ enriched Git indexes for all of them.
 Targets are implemented in separate files in `targets` directory.
 Those files are Python modules implementing classes for the intentions
 (inheriting from Intention, with a separate table), and other auxiliary
-classes. For example, for GitHub, we have Instance, Repo, and Token as
-auxiliary model classes, and IRaw and IEnriched as Intention classes.
+classes. For example, for GitHub, we have GHInstance, GHRepo, and GHToken as
+auxiliary model classes, and GHIRaw and GHIEnrich as Intention classes.

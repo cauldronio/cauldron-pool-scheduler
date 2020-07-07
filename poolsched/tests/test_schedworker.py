@@ -6,14 +6,15 @@ from django.test import TestCase
 from django.utils.timezone import now
 
 from ..models import User, Intention, Job
-from ..models.targets.github import IRaw as GHIRaw, \
-    Repo as GHRepo, Token as GHToken
+from ..models.targets.github import GHIRaw as GHIRaw, \
+    GHRepo as GHRepo, GHToken as GHToken
 from ..schedworker import SchedWorker
 
 logger = logging.getLogger(__name__)
-#logging.basicConfig(level=logging.WARNING)
+# logging.basicConfig(level=logging.WARNING)
 
 call_no = 0
+
 
 def mock_run(intention, job):
     repo = intention.repo
@@ -39,15 +40,17 @@ class TestPoolSched(TestCase):
          * User C has two intentions (done, ready), and one exhausted token
          * User D has one intention (done), and one exhausted token
          * User E has one intention (done), and one exhausted token
+         * User F has no intentions
         """
 
         # Some users
         self.users = [User.objects.create(username=username)
-                 for username in ['A', 'B', 'C', 'D', 'E']]
+                      for username in ['A', 'B', 'C', 'D', 'E']]
+        User.objects.create(username='F')
         # Some repos
         self.repos = [GHRepo.objects.create(owner='owner',
                                             repo=repo)
-                     for repo in ['R0', 'R1', 'R2', 'R3']]
+                      for repo in ['R0', 'R1', 'R2', 'R3']]
         repo_count = 0
         # Five intentions done, one per user, and five tokens (three exhausted)
         for user in self.users:
@@ -66,7 +69,7 @@ class TestPoolSched(TestCase):
             token.save()
         # Three more intentions, for users A, B, C, all ready
         for user in self.users[:3]:
-            intention = GHIRaw.objects.create (
+            intention = GHIRaw.objects.create(
                 user=user,
                 status=Intention.Status.READY,
                 repo=self.repos[repo_count]
@@ -74,15 +77,14 @@ class TestPoolSched(TestCase):
             repo_count = (repo_count + 1) % len(self.repos)
         # One more intention, for user A, ready
         for user in self.users[:1]:
-            intention = GHIRaw.objects.create (
+            intention = GHIRaw.objects.create(
                 user=user,
                 status=Intention.Status.READY,
                 repo=self.repos[repo_count]
             )
 
     def test_init(self):
-
-#        logging.basicConfig(level=logging.DEBUG)
+        # logging.basicConfig(level=logging.DEBUG)
         worker = SchedWorker(run=True, finish=True)
         for job in Job.objects.all():
             self.assertEqual(job.status, Job.Status.DONE)
@@ -108,16 +110,16 @@ class TestPoolSched(TestCase):
         self.assertEqual(job.worker, worker.worker)
         self.assertEqual(job.status, Job.Status.WAITING)
         intention = job.intention_set.first()
-        self.assertEqual(intention.status,Intention.Status.READY)
+        self.assertEqual(intention.status, Intention.Status.READY)
         tokens = job.ghtokens.all()
-        self.assertEqual(len(tokens),1)
+        self.assertEqual(len(tokens), 1)
         self.assertEqual(intention.user, tokens[0].user)
 
     def test_get_intentions(self):
         """Test get_intentions, for a single user"""
 
         # Expected intentions ready (per user)
-        expected_intentions = {'A': 2, 'B': 1, 'C': 0, 'D': 0, 'E': 0}
+        expected_intentions = {'A': 2, 'B': 1, 'C': 0, 'D': 0, 'E': 0, 'F': 0}
         worker = SchedWorker()
         # Get all users
         users = User.objects.all()
@@ -126,7 +128,7 @@ class TestPoolSched(TestCase):
             # Check one intention returned at most
             intentions = worker._get_intentions(users=[user])
             self.assertEqual(len(intentions),
-                             min(expected_intentions[user.username],1))
+                             min(expected_intentions[user.username], 1))
             # Check all intentions are found
             intentions = worker._get_intentions(users=[user], max=4)
             self.assertEqual(len(intentions),
@@ -151,7 +153,7 @@ class TestPoolSched(TestCase):
         """Test get_intentions, calling it with two users"""
 
         # Expected intentions ready (per user)
-        exp_intentions = {'A': 2, 'B': 1, 'C': 0, 'D': 0, 'E': 0}
+        exp_intentions = {'A': 2, 'B': 1, 'C': 0, 'D': 0, 'E': 0, 'F': 0}
         worker = SchedWorker()
         # Get all users
         users = User.objects.all()
@@ -159,20 +161,20 @@ class TestPoolSched(TestCase):
         for max in range(5):
             # Check all users, two users each loop
             for i in range(len(users)):
-                if i+1 < len(users):
+                if i + 1 < len(users):
                     u1, u2 = i, i + 1
                 else:
                     u1, u2 = i, 0
                 two_users = [users[u1], users[u2]]
-                expected = exp_intentions[users[u1].username] + \
-                    exp_intentions[users[u2].username]
+                expected = (exp_intentions[users[u1].username]
+                            + exp_intentions[users[u2].username]) # noqa
                 intentions = worker._get_intentions(users=two_users,
                                                     max=max)
                 self.assertEqual(len(intentions), min(expected, max))
 
     @patch.object(GHIRaw, 'run', side_effect=mock_run, autospec=True)
     def test_init2(self, mock_fun):
-#        logging.basicConfig(level=logging.DEBUG)
+        #        logging.basicConfig(level=logging.DEBUG)
         worker = SchedWorker(run=True, finish=True)
         # Run should run 5 times being interrupted, and 4 more (all intentions done)
         self.assertEqual(mock_fun.call_count, 9)

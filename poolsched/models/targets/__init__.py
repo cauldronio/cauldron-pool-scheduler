@@ -1,2 +1,5 @@
 from . import github
-#from . import gitlab
+from . import git
+from . import gitlab
+
+__all__ = ['github', 'git', 'gitlab']
