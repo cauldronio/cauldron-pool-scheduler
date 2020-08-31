@@ -6,7 +6,7 @@ from django.utils.timezone import now
 
 from ....models import Intention
 from ....models import Job, User, Worker
-from ....models.targets.gitlab import GLInstance, GLRepo, GLIRaw, GLToken
+from ....models.targets.gitlab import GLInstance, GLRepo, IGLRaw, GLToken
 
 GITLAB_INSTANCE = GLInstance.objects.get(name='GitLab')
 
@@ -16,24 +16,24 @@ logger = logging.getLogger(__name__)
 class TestBasic(TestCase):
 
     def test_create(self):
-        """Insert a single GLIRaw into the database"""
+        """Insert a single IGLRaw into the database"""
         repo = GLRepo.objects.create(owner='owner', repo='repo',
                                      instance=GITLAB_INSTANCE)
-        iraw = GLIRaw.objects.create(repo=repo)
-        found = GLIRaw.objects.get(repo=repo)
+        iraw = IGLRaw.objects.create(repo=repo)
+        found = IGLRaw.objects.get(repo=repo)
         self.assertEqual(iraw, found)
 
     def test_create_2(self):
-        """Insert two GLIRaw into the database"""
+        """Insert two IGLRaw into the database"""
         repo1 = GLRepo.objects.create(owner='owner1', repo='repo',
                                       instance=GITLAB_INSTANCE)
         repo2 = GLRepo.objects.create(owner='owner2', repo='repo',
                                       instance=GITLAB_INSTANCE)
 
-        iraw1 = GLIRaw.objects.create(repo=repo1)
-        iraw2 = GLIRaw.objects.create(repo=repo2)
+        iraw1 = IGLRaw.objects.create(repo=repo1)
+        iraw2 = IGLRaw.objects.create(repo=repo2)
 
-        iraws = GLIRaw.objects.all()
+        iraws = IGLRaw.objects.all()
         self.assertEqual(len(iraws), 2)
         self.assertIn(iraw1, iraws)
         self.assertIn(iraw2, iraws)
@@ -42,7 +42,7 @@ class TestBasic(TestCase):
         """Test the initialization of TokenExhaustedException and str method"""
         token = GLToken()
         msg = 'GLToken error'
-        exc = GLIRaw.TokenExhaustedException(token=token, message=msg)
+        exc = IGLRaw.TokenExhaustedException(token=token, message=msg)
         self.assertEqual(exc.token, token)
         self.assertEqual(exc.message, msg)
         self.assertEqual(str(exc), msg)
@@ -55,8 +55,8 @@ class TestMethods(TestCase):
                                            instance=GITLAB_INSTANCE)
         self.user1 = User.objects.create(username='A')
         self.user2 = User.objects.create(username='B')
-        self.iraw1 = GLIRaw.objects.create(repo=self.repo1, user=self.user1)
-        self.iraw2 = GLIRaw.objects.create(repo=self.repo1, user=self.user2)
+        self.iraw1 = IGLRaw.objects.create(repo=self.repo1, user=self.user1)
+        self.iraw2 = IGLRaw.objects.create(repo=self.repo1, user=self.user2)
         self.token1 = GLToken.objects.create(token='0123456')
         self.token2 = GLToken.objects.create(token='6543210')
         self.worker1 = Worker.objects.create()
@@ -68,12 +68,12 @@ class TestMethods(TestCase):
         self.assertEqual(prev, [])
 
     def test_create_job(self):
-        """Test create GLIRaw job without token"""
+        """Test create IGLRaw job without token"""
         job = self.iraw1.create_job(self.worker1)
         self.assertEqual(job, None)
 
     def test_create_job2(self):
-        """Test create GLIRaw job with token"""
+        """Test create IGLRaw job with token"""
         self.user1.gltokens.add(self.token1)
         job = self.iraw1.create_job(self.worker1)
         self.assertEqual(job.worker, self.worker1)
@@ -81,7 +81,7 @@ class TestMethods(TestCase):
         self.assertIn(self.token1, job.gltokens.all())
 
     def test_create_job3(self):
-        """Test create GLIRaw job with existing job"""
+        """Test create IGLRaw job with existing job"""
         self.user1.gltokens.add(self.token1)
         job1 = self.iraw1.create_job(self.worker1)
         job2 = self.iraw1.create_job(self.worker1)
@@ -126,82 +126,67 @@ class TestSelectableIntentions(TestCase):
 
         self.user2 = User.objects.create(username='2')
         self.token2 = GLToken.objects.create(token='0123456', user=self.user2)
-        self.iraw_U2_1 = GLIRaw.objects.create(repo=self.repo1, user=self.user2,
-                                               status=Intention.Status.READY)
+        self.iraw_U2_1 = IGLRaw.objects.create(repo=self.repo1, user=self.user2)
 
         self.user3 = User.objects.create(username='3')
         self.token3 = GLToken.objects.create(token='0123456', user=self.user3)
-        self.iraw_U3_1 = GLIRaw.objects.create(repo=self.repo1, user=self.user3,
-                                               status=Intention.Status.READY)
-        self.iraw_U3_2 = GLIRaw.objects.create(repo=self.repo2, user=self.user3,
-                                               status=Intention.Status.READY)
+        self.iraw_U3_1 = IGLRaw.objects.create(repo=self.repo1, user=self.user3)
+        self.iraw_U3_2 = IGLRaw.objects.create(repo=self.repo2, user=self.user3)
 
         self.user4 = User.objects.create(username='4')
         self.token4 = GLToken.objects.create(token='0123456', user=self.user4)
-        self.iraw_U4_1 = GLIRaw.objects.create(repo=self.repo1, user=self.user4,
-                                               status=Intention.Status.READY)
-        self.iraw_U4_2 = GLIRaw.objects.create(repo=self.repo2, user=self.user4,
-                                               status=Intention.Status.WORKING)
+        self.iraw_U4_1 = IGLRaw.objects.create(repo=self.repo1, user=self.user4)
+        self.iraw_U4_2 = IGLRaw.objects.create(repo=self.repo2, user=self.user4)
 
         self.user5 = User.objects.create(username='5')
         self.token5 = GLToken.objects.create(token='0123456', user=self.user5)
-        self.iraw_U5_1 = GLIRaw.objects.create(repo=self.repo1, user=self.user5,
-                                               status=Intention.Status.READY)
+        self.iraw_U5_1 = IGLRaw.objects.create(repo=self.repo1, user=self.user5)
         self.job_U5 = Job.objects.create()
-        self.iraw_U5_2 = GLIRaw.objects.create(repo=self.repo2, user=self.user5,
-                                               status=Intention.Status.READY,
+        self.iraw_U5_2 = IGLRaw.objects.create(repo=self.repo2, user=self.user5,
                                                job=self.job_U5)
 
         self.user6 = User.objects.create(username='6')
         self.token6 = GLToken.objects.create(token='0123456', user=self.user6,
                                              reset=now() + datetime.timedelta(hours=1))
-        self.iraw_U6_1 = GLIRaw.objects.create(repo=self.repo1, user=self.user6,
-                                               status=Intention.Status.READY)
+        self.iraw_U6_1 = IGLRaw.objects.create(repo=self.repo1, user=self.user6)
 
         self.user7 = User.objects.create(username='7')
-        self.iraw_U7_1 = GLIRaw.objects.create(repo=self.repo1, user=self.user7,
-                                               status=Intention.Status.READY)
+        self.iraw_U7_1 = IGLRaw.objects.create(repo=self.repo1, user=self.user7)
 
     def test_user_1(self):
         """Test not available intentions"""
-        intentions = GLIRaw.objects.selectable_intentions(user=self.user1)
+        intentions = IGLRaw.objects.selectable_intentions(user=self.user1)
         self.assertEqual(len(intentions), 0)
 
     def test_user_2(self):
         """Test one intention ready"""
-        intentions = GLIRaw.objects.selectable_intentions(user=self.user2)
+        intentions = IGLRaw.objects.selectable_intentions(user=self.user2)
         self.assertEqual(len(intentions), 1)
         self.assertEqual(intentions[0], self.iraw_U2_1)
 
     def test_user_3(self):
         """Test two intentions ready, get 1"""
-        intentions = GLIRaw.objects.selectable_intentions(user=self.user3, max=1)
+        intentions = IGLRaw.objects.selectable_intentions(user=self.user3, max=1)
         self.assertEqual(len(intentions), 1)
         self.assertIn(intentions[0], [self.iraw_U3_1, self.iraw_U3_2])
 
     def test_user_3b(self):
         """Test two intentions ready, get 2"""
-        intentions = GLIRaw.objects.selectable_intentions(user=self.user3, max=2)
+        intentions = IGLRaw.objects.selectable_intentions(user=self.user3, max=2)
         self.assertEqual(len(intentions), 2)
         self.assertListEqual(list(intentions), [self.iraw_U3_1, self.iraw_U3_2])
 
-    def test_user_4(self):
-        """Test one running one ready"""
-        intentions = GLIRaw.objects.selectable_intentions(user=self.user4, max=2)
-        self.assertEqual(len(intentions), 1)
-        self.assertEqual(intentions[0], self.iraw_U4_1)
-
     def test_user_5(self):
-        """Test one ready and one ready with job"""
-        intentions = GLIRaw.objects.selectable_intentions(user=self.user5, max=2)
+        """Test one ready and one running with job"""
+        intentions = IGLRaw.objects.selectable_intentions(user=self.user5, max=2)
         self.assertEqual(len(intentions), 1)
 
     def test_user_6(self):
         """Test one ready, with future reset token"""
-        intentions = GLIRaw.objects.selectable_intentions(user=self.user6, max=2)
+        intentions = IGLRaw.objects.selectable_intentions(user=self.user6, max=2)
         self.assertEqual(len(intentions), 0)
 
     def test_user_7(self):
         """Test one ready, without token"""
-        intentions = GLIRaw.objects.selectable_intentions(user=self.user7, max=2)
+        intentions = IGLRaw.objects.selectable_intentions(user=self.user7, max=2)
         self.assertEqual(len(intentions), 0)

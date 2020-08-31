@@ -9,8 +9,7 @@ class TestBasic(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.worker = Worker.objects.create(status=Worker.Status.UP)
-        cls.job = Job.objects.create(status=Job.Status.WORKING,
-                                     worker=cls.worker)
+        cls.job = Job.objects.create(worker=cls.worker)
 
     def test_job(self):
         """Find the job created, from the worker"""

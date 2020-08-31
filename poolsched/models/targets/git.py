@@ -27,7 +27,7 @@ class IRawManager(models.Manager):
     """Model manager for IGitRaw"""
 
     def selectable_intentions(self, user, max=1):
-        """Return a list of selectable GitIRaw intentions for a user
+        """Return a list of selectable IGitRaw intentions for a user
 
         A intention is selectable if:
         * it's status is ready
@@ -37,16 +37,16 @@ class IRawManager(models.Manager):
 
         :param user: user to check
         :param max:  maximum number of intentions to return
-        :returns:    list of GitIRaw intentions
+        :returns:    list of IGitRaw intentions
         """
 
-        intentions = self.filter(status=Intention.Status.READY,
-                                 user=user,
-                                 job=None)
+        intentions = self.filter(user=user,
+                                 job=None,
+                                 previous=None)
         return intentions.all()[:max]
 
 
-class GitIRaw(Intention):
+class IGitRaw(Intention):
     """Intention for producing raw indexes for Git repos"""
 
     # GitRepo to analyze
@@ -57,7 +57,8 @@ class GitIRaw(Intention):
     objects = IRawManager()
 
     @classmethod
-    def next_job(cls):
+    @transaction.atomic
+    def next_job(cls, worker):
         """Find the next job of this model.
 
         To be selected, a job should be waiting
@@ -65,9 +66,15 @@ class GitIRaw(Intention):
 
         :return:           selected job (None if none is ready)
         """
-
-        jobs = Job.objects.filter(status=Job.Status.WAITING)
-        job = jobs.first()
+        job = None
+        intention = IGitRaw.objects\
+            .select_related('job').select_for_update()\
+            .exclude(job=None).filter(job__worker=None)\
+            .first()
+        if intention:
+            job = intention.job
+            job.worker = worker
+            job.save()
         return job
 
     def create_previous(self):
@@ -83,7 +90,7 @@ class GitIRaw(Intention):
         :return:          Job object, if it was found, or None, if not
         """
 
-        candidates = self.repo.gitiraw_set.filter(job__isnull=False)
+        candidates = self.repo.igitraw_set.filter(job__isnull=False)
         try:
             # Find intention with job for the same repo, assign job to self
             self.job = candidates[0].job
@@ -122,12 +129,19 @@ class GitIRaw(Intention):
         repo = self.repo
         logger.info(f"Running GitRaw intention: {repo.url}")
 
+    def archive(self):
+        """Archive and remove the current intention"""
+        IGitRawArchived.objects.create(user=self.user,
+                                       repo=self.repo,
+                                       created=self.created)
+        self.delete()
+
 
 class IEnrichedManager(models.Manager):
-    """Model manager for GitIEnrich"""
+    """Model manager for IGitEnrich"""
 
     def selectable_intentions(self, user, max=1):
-        """Return a list of selectable GitIEnrich intentions for a user
+        """Return a list of selectable IGitEnrich intentions for a user
 
         A intention is selectable if:
         * it's status is ready
@@ -137,16 +151,16 @@ class IEnrichedManager(models.Manager):
 
         :param user: user to check
         :param max:  maximum number of intentions to return
-        :returns:    list of GitIRaw intentions
+        :returns:    list of IGitRaw intentions
         """
 
-        intentions = self.filter(status=Intention.Status.READY,
-                                 user=user,
-                                 job=None)
+        intentions = self.filter(user=user,
+                                 job=None,
+                                 previous=None)
         return intentions.all()[:max]
 
 
-class GitIEnrich(Intention):
+class IGitEnrich(Intention):
     """Intention for producing enriched indexes for Git repos"""
 
     # GitRepo to analyze
@@ -157,7 +171,8 @@ class GitIEnrich(Intention):
     objects = IEnrichedManager()
 
     @classmethod
-    def next_job(cls):
+    @transaction.atomic
+    def next_job(cls, worker):
         """Find the next job of this model.
 
         To be selected, a job should be waiting.
@@ -165,16 +180,22 @@ class GitIEnrich(Intention):
 
         :return:           selected job (None if none is ready)
         """
-
-        jobs = Job.objects.filter(status=Job.Status.WAITING)
-        job = jobs.first()
+        job = None
+        intention = IGitEnrich.objects\
+            .select_related('job').select_for_update()\
+            .exclude(job=None).filter(job__worker=None)\
+            .first()
+        if intention:
+            job = intention.job
+            job.worker = worker
+            job.save()
         return job
 
     def create_previous(self):
         """Create all needed previous intentions"""
 
-        raw_intention = GitIRaw.objects.create(repo=self.repo,
-                                               user=self.user)
+        raw_intention, _ = IGitRaw.objects.get_or_create(repo=self.repo,
+                                                         user=self.user)
         self.previous.add(raw_intention)
         return [raw_intention]
 
@@ -187,7 +208,7 @@ class GitIEnrich(Intention):
         :return: Job object, if it was found, or None, if not
         """
 
-        candidates = self.repo.gitienrich_set.filter(job__isnull=False)
+        candidates = self.repo.igitenrich_set.filter(job__isnull=False)
         try:
             # Find intention with job for the same repo, assign job to self
             self.job = candidates[0].job
@@ -210,6 +231,7 @@ class GitIEnrich(Intention):
                 if self.job is None:
                     job = Job.objects.create(worker=worker)
                     self.job = job
+                    self.save()
         except IntegrityError:
             return None
         return job
@@ -220,3 +242,27 @@ class GitIEnrich(Intention):
         :return:
         """
         logger.info(f"Running GitEnrich intention: {self.repo.url}")
+
+    def archive(self):
+        """Archive and remove the current intention"""
+        IGitEnrichArchived.objects.create(user=self.user,
+                                          repo=self.repo,
+                                          created=self.created)
+        self.delete()
+
+
+class IGitRawArchived(models.Model):
+    repo = models.ForeignKey(GitRepo, on_delete=models.PROTECT)
+    user = models.ForeignKey('User', on_delete=models.PROTECT,
+                             default=None, null=True, blank=True)
+    created = models.DateTimeField()
+    completed = models.DateTimeField(auto_now_add=True)
+
+
+class IGitEnrichArchived(models.Model):
+    repo = models.ForeignKey(GitRepo, on_delete=models.PROTECT)
+    user = models.ForeignKey('User', on_delete=models.PROTECT,
+                             default=None, null=True, blank=True)
+    created = models.DateTimeField()
+    completed = models.DateTimeField(auto_now_add=True)
+

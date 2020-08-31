@@ -36,11 +36,11 @@ class TestRandomUserReady(TestCase):
                  [user5, 0, 20], [user6, 0, 120]]
         for user in users:
             for intention in range(0, user[1]):
-                Intention.objects.create(user=user[0],
-                                         status=Intention.Status.READY)
+                Intention.objects.create(user=user[0])
             for intention in range(0, user[2]):
-                Intention.objects.create(user=user[0],
-                                         status=Intention.Status.WORKING)
+                intent = Intention.objects.create(user=user[0])
+                intent.previous.add(Intention.objects.create())
+                intent.save()
 
     def test_random_user_id_ready(self):
         """Some intentions from the random user"""

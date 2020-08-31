@@ -74,11 +74,10 @@ class IRawManager(models.Manager):
     """Model manager for IGitLabRaw"""
 
     def selectable_intentions(self, user, max=1):
-        """Return a list of selectable GLIRaw intentions for a user
+        """Return a list of selectable IGLRaw intentions for a user
 
         A intention is selectable if:
         * its user has a usable token
-        * it's status is ready
         * no job is still associated with it
         * (future) in fact, either its user has a usable token,
           or there is other (public) token avilable
@@ -87,17 +86,17 @@ class IRawManager(models.Manager):
 
         :param user: user to check
         :param max:  maximum number of intentions to return
-        :returns:    list of GLIRaw intentions
+        :returns:    list of IGLRaw intentions
         """
 
-        intentions = self.filter(status=Intention.Status.READY,
+        intentions = self.filter(previous=None,
                                  user=user,
                                  job=None) \
             .filter(user__gltoken__reset__lt=now())
         return intentions.all()[:max]
 
 
-class GLIRaw(Intention):
+class IGLRaw(Intention):
     """Intention for producing raw indexes for GitLab repos"""
 
     # GLRepo to analyze
@@ -128,7 +127,8 @@ class GLIRaw(Intention):
             return self.message
 
     @classmethod
-    def next_job(cls):
+    @transaction.atomic
+    def next_job(cls, worker):
         """Find the next job of this model.
 
         To be selected, a job should be waiting, and have a token ready.
@@ -137,9 +137,15 @@ class GLIRaw(Intention):
         :return:           selected job (None if none is ready)
         """
 
-        jobs = Job.objects.filter(status=Job.Status.WAITING) \
-            .filter(gltoken__reset__lt=now())
-        job = jobs.first()
+        job = None
+        intention = IGLRaw.objects\
+            .select_related('job').select_for_update()\
+            .exclude(job=None).filter(job__worker=None).filter(job__gltoken__reset__lt=now())\
+            .first()
+        if intention:
+            job = intention.job
+            job.worker = worker
+            job.save()
         return job
 
     def create_previous(self):
@@ -156,7 +162,7 @@ class GLIRaw(Intention):
         :return:          Job object, if it was found, or None, if not
         """
 
-        candidates = self.repo.gliraw_set.filter(job__isnull=False)
+        candidates = self.repo.iglraw_set.filter(job__isnull=False)
         try:
             # Find intention with job for the same repo, assign job to self
             self.job = candidates[0].job
@@ -209,31 +215,37 @@ class GLIRaw(Intention):
         logger.info(f"Running GitLabRaw intention: {repo.owner}/{repo.repo}, token: {token}")
         # raise TokenExhaustedException(token=token) if token exhausted
 
+    def archive(self):
+        """Archive and remove the current intention"""
+        IGLRawArchived.objects.create(user=self.user,
+                                      repo=self.repo,
+                                      created=self.created)
+        self.delete()
+
 
 class IEnrichedManager(models.Manager):
-    """Model manager for GLIEnrich"""
+    """Model manager for IGLEnrich"""
 
     def selectable_intentions(self, user, max=1):
-        """Return a list of selectable GLIEnrich intentions for a user
+        """Return a list of selectable IGLEnrich intentions for a user
 
         A intention is selectable if:
-        * it's status is ready
         * no job is still associated with it
         It's not important if there is other job for the same repo,
         that will be checked later.
 
         :param user: user to check
         :param max:  maximum number of intentions to return
-        :returns:    list of GLIRaw intentions
+        :returns:    list of IGLRaw intentions
         """
 
-        intentions = self.filter(status=Intention.Status.READY,
+        intentions = self.filter(previous=None,
                                  user=user,
                                  job=None)
         return intentions.all()[:max]
 
 
-class GLIEnrich(Intention):
+class IGLEnrich(Intention):
     """Intention for producing enriched indexes for GitLab repos"""
 
     # GLRepo to analyze
@@ -244,7 +256,8 @@ class GLIEnrich(Intention):
     objects = IEnrichedManager()
 
     @classmethod
-    def next_job(cls):
+    @transaction.atomic
+    def next_job(cls, worker):
         """Find the next job of this model.
 
         To be selected, a job should be waiting.
@@ -253,15 +266,22 @@ class GLIEnrich(Intention):
         :return:           selected job (None if none is ready)
         """
 
-        jobs = Job.objects.filter(status=Job.Status.WAITING)
-        job = jobs.first()
+        job = None
+        intention = IGLEnrich.objects\
+            .select_related('job').select_for_update()\
+            .exclude(job=None).filter(job__worker=None)\
+            .first()
+        if intention:
+            job = intention.job
+            job.worker = worker
+            job.save()
         return job
 
     def create_previous(self):
         """Create all needed previous intentions"""
 
-        raw_intention = GLIRaw.objects.create(repo=self.repo,
-                                              user=self.user)
+        raw_intention, _ = IGLRaw.objects.get_or_create(repo=self.repo,
+                                                        user=self.user)
         self.previous.add(raw_intention)
         return [raw_intention]
 
@@ -274,7 +294,7 @@ class GLIEnrich(Intention):
         :return: Job object, if it was found, or None, if not
         """
 
-        candidates = self.repo.glienrich_set.filter(job__isnull=False)
+        candidates = self.repo.iglenrich_set.filter(job__isnull=False)
         try:
             # Find intention with job for the same repo, assign job to self
             self.job = candidates[0].job
@@ -308,3 +328,28 @@ class GLIEnrich(Intention):
         """
 
         logger.info(f"Running GitLabEnrich intention: {self.repo.owner}/{self.repo.repo}")
+
+    def archive(self):
+        """Archive and remove the current intention"""
+        IGLEnrichArchived.objects.create(user=self.user,
+                                         repo=self.repo,
+                                         created=self.created)
+        self.delete()
+
+
+class IGLRawArchived(models.Model):
+    """Archived GitLab Raw intention"""
+    repo = models.ForeignKey(GLRepo, on_delete=models.PROTECT)
+    user = models.ForeignKey('User', on_delete=models.PROTECT,
+                             default=None, null=True, blank=True)
+    created = models.DateTimeField()
+    completed = models.DateTimeField(auto_now_add=True)
+
+
+class IGLEnrichArchived(models.Model):
+    """Archived GitLab Enrich intention"""
+    repo = models.ForeignKey(GLRepo, on_delete=models.PROTECT)
+    user = models.ForeignKey('User', on_delete=models.PROTECT,
+                             default=None, null=True, blank=True)
+    created = models.DateTimeField()
+    completed = models.DateTimeField(auto_now_add=True)

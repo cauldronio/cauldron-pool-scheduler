@@ -8,9 +8,10 @@ from time import sleep
 from django.forms.models import model_to_dict
 
 from .models import Worker, Intention, User, Job, ArchJob
-from .models.targets.github import GHIRaw, GHIEnrich
-from .models.targets.git import GitIRaw as GitIRaw
-from .models.targets.git import GitIEnrich as GitIEnrich
+from .models.targets.github import IGHRaw, IGHEnrich
+from .models.targets.gitlab import IGLRaw, IGLEnrich
+from .models.targets.git import IGitRaw
+from .models.targets.git import IGitEnrich
 
 logger = logging.getLogger(__name__)
 # logging.basicConfig(level=logging.INFO)
@@ -21,7 +22,7 @@ The precedence of a job is governed by the following rules:
 - Job that needs little time to run
 - Job that doesn't use a token
 """
-INTENTION_ORDER = [GitIEnrich, GHIEnrich, GitIRaw, GHIRaw]
+INTENTION_ORDER = [IGitEnrich, IGHEnrich, IGLEnrich, IGitRaw, IGHRaw, IGLRaw]
 
 
 class SchedWorker:
@@ -41,8 +42,11 @@ class SchedWorker:
 
         intentions = []
         for user in users:
+            logger.debug(user)
             for intention_type in INTENTION_ORDER:
                 intentions.extend(intention_type.objects.selectable_intentions(user=user, max=max))
+                if len(intentions) >= max:
+                    break
             if len(intentions) >= max:
                 break
         return intentions[0:max]
@@ -104,7 +108,7 @@ class SchedWorker:
         """Get the next job to run, among those WAITING"""
         job = None
         for intention_type in INTENTION_ORDER:
-            job = intention_type.next_job()
+            job = intention_type.next_job(self.worker)
             if job:
                 break
         return job
@@ -113,6 +117,7 @@ class SchedWorker:
         """Run the job
 
         This will run some code defined by the intention.
+        If the job is finished, it is archived and the intention marked as DONE
 
         :param job: Job object to run
         :return:    Job object after running
@@ -123,15 +128,16 @@ class SchedWorker:
             intention = job.intention_set.first()
             logger.debug(f"Intention to run (casted): {intention} ({intention.cast()})")
             intention.cast().run(job)
-            job.status = Job.Status.DONE
-            for intention in job.intention_set.all():
-                intention.status = Intention.Status.DONE
-                intention.save()
-            job.save()
+            self.archive_intentions(job.intention_set.all())
+            self.archive_job(job)
         except Job.StopException as e:
             logger.debug(f"Intention stopped before completing: {job}")
+            job.worker = None
+            job.save()
         except Exception as e:
-            logger.info(f"Other exception (error?): {job}, {e}")
+            logger.error(f"Other exception (error?): {job}, {e}")
+            job.worker = None
+            job.save()
         return job
 
     def archive_job(self, job):
@@ -141,6 +147,12 @@ class SchedWorker:
         arch_job = ArchJob(created=job.created, worker=job.worker)
         arch_job.save()
         job.delete()
+
+    def archive_intentions(self, intentions):
+        """Archive the intentions, they are already done"""
+        for intention in intentions:
+            logger.info("Archiving intention: " + str(model_to_dict(intention)))
+            intention.cast().archive()
 
     def __init__(self, run=False, finish=False):
         """Start the party
@@ -152,29 +164,25 @@ class SchedWorker:
         self.worker = Worker.objects.create()
         self.workers.append(self.worker)
         while run:
+            debug_intentions = Intention.objects.all()
             logger.info("Waiting for new tasks...")
             # Get next job, among those available to run
             job = self.next_job()
             logger.debug(f"Job obtained from next_job(): {job}")
             if job is None:
-                # No job available (but maybe there are unavailable jobs)
+                # No job available (but maybe there are available intentions)
                 worker_jobs = Job.objects.exclude(worker=None).count()
                 workers_no = len(self.workers)
                 logger.debug(f"Jobs in worker (workers): {worker_jobs} ({workers_no})")
                 if worker_jobs < (5 * workers_no):
                     # Get a new job for worker, if we don't have too many
-                    job = self.get_new_job()
+                    job = self.get_new_job(max_users=4)
                     logger.debug(f"Job obtained from get_new_job(): {job}")
             if job is not None:
-                logger.debug(f"About to run job: {job},{job.status}")
-                job = self.run_job(job)
-                if job.status == Job.Status.DONE:
-                    self.archive_job(job)
+                logger.debug(f"About to run job: {job}")
+                self.run_job(job)
             else:
                 if finish:
                     if worker_jobs == 0:
-                        remaining = Intention.objects.exclude(status=Intention.Status.DONE)
-                        logger.debug(f"Remaining intentions: {remaining}")
-                        if remaining.count() == 0:
-                            break
+                        break
                 sleep(3)

@@ -9,12 +9,10 @@ class TestBasic(TestCase):
         """Define some useful constants"""
 
         self.intention1 = Intention(
-            job=None, user=None,
-            status=Intention.Status.WAITING
+            job=None, user=None
         )
         self.intention2 = Intention(
-            job=None, user=None,
-            status=Intention.Status.WAITING
+            job=None, user=None
         )
 
     def test_create(self):
@@ -42,7 +40,6 @@ class TestBasic(TestCase):
         intention = Intention()
         self.assertEqual(intention.job, None)
         self.assertEqual(intention.user, None)
-        self.assertEqual(intention.status, Intention.Status.WAITING)
 
     def test_previous(self):
         """Create intention with previous intention"""
@@ -119,9 +116,9 @@ class TestCast(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.subfields = ['ghiraw', 'ghienrich',
-                         'gitiraw', 'gitienrich',
-                         'gliraw', 'glienrich']
+        cls.subfields = ['ighraw', 'ighenrich',
+                         'igitraw', 'igitenrich',
+                         'iglraw', 'iglenrich']
 
     def test_subfields(self):
         """Test _subfields()"""

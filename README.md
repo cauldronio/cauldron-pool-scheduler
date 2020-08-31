@@ -131,4 +131,4 @@ Targets are implemented in separate files in `targets` directory.
 Those files are Python modules implementing classes for the intentions
 (inheriting from Intention, with a separate table), and other auxiliary
 classes. For example, for GitHub, we have GHInstance, GHRepo, and GHToken as
-auxiliary model classes, and GHIRaw and GHIEnrich as Intention classes.
+auxiliary model classes, and IGHRaw and IGHEnrich as Intention classes.

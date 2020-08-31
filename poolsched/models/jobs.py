@@ -6,12 +6,6 @@ from . import workers
 
 class Job(models.Model):
 
-    # TODO: Quiza no necesario
-    class Status(models.TextChoices):
-        WAITING = 'WA', "Waiting"
-        WORKING = 'WO', "Working"
-        DONE = 'DO', "Done"
-
     class StopException(Exception):
         """Raised when the job had to stop before completion.
 
@@ -24,9 +18,6 @@ class Job(models.Model):
     # Worker dealing with this job, if any
     worker = models.ForeignKey(workers.Worker, on_delete=models.SET_NULL,
                                default=None, null=True, blank=True)
-    # Status of the job
-    status = models.CharField(max_length=2, choices=Status.choices,
-                              default=Status.WAITING)
 
 
 class ArchJob(models.Model):

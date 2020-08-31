@@ -4,7 +4,7 @@ from django.test import TestCase
 
 from ....models import Intention
 from ....models import Job, User, Worker
-from ....models.targets.gitlab import GLInstance, GLRepo, GLIEnrich
+from ....models.targets.gitlab import GLInstance, GLRepo, IGLEnrich
 
 GITLAB_INSTANCE = GLInstance.objects.get(name='GitLab')
 
@@ -17,8 +17,8 @@ class TestBasicCreate(TestCase):
         """Insert a single IEnrich into the database"""
         repo = GLRepo.objects.create(owner='owner', repo='repo',
                                      instance=GITLAB_INSTANCE)
-        enrich = GLIEnrich.objects.create(repo=repo)
-        found = GLIEnrich.objects.get(repo=repo)
+        enrich = IGLEnrich.objects.create(repo=repo)
+        found = IGLEnrich.objects.get(repo=repo)
         self.assertEqual(enrich, found)
 
     def test_create_2(self):
@@ -28,10 +28,10 @@ class TestBasicCreate(TestCase):
         repo2 = GLRepo.objects.create(owner='owner2', repo='repo',
                                       instance=GITLAB_INSTANCE)
 
-        enrich1 = GLIEnrich.objects.create(repo=repo1)
-        enrich2 = GLIEnrich.objects.create(repo=repo2)
+        enrich1 = IGLEnrich.objects.create(repo=repo1)
+        enrich2 = IGLEnrich.objects.create(repo=repo2)
 
-        enrichs = GLIEnrich.objects.all()
+        enrichs = IGLEnrich.objects.all()
         self.assertEqual(len(enrichs), 2)
         self.assertIn(enrich1, enrichs)
         self.assertIn(enrich2, enrichs)
@@ -44,8 +44,8 @@ class TestMethods(TestCase):
                                            instance=GITLAB_INSTANCE)
         self.user1 = User.objects.create(username='A')
         self.user2 = User.objects.create(username='B')
-        self.enrich1 = GLIEnrich.objects.create(repo=self.repo1, user=self.user1)
-        self.enrich2 = GLIEnrich.objects.create(repo=self.repo1, user=self.user2)
+        self.enrich1 = IGLEnrich.objects.create(repo=self.repo1, user=self.user1)
+        self.enrich2 = IGLEnrich.objects.create(repo=self.repo1, user=self.user2)
         self.worker1 = Worker.objects.create()
         self.worker2 = Worker.objects.create()
 
@@ -56,13 +56,13 @@ class TestMethods(TestCase):
         self.assertEqual(prev[0].user, self.enrich1.user)
 
     def test_create_job(self):
-        """Test create GitLab.GLIEnrich job"""
+        """Test create GitLab.IGLEnrich job"""
         job = self.enrich1.create_job(self.worker1)
         self.assertEqual(job.worker, self.worker1)
         self.assertEqual(self.enrich1.job, job)
 
     def test_create_job2(self):
-        """Test create GitLab.GLIEnrich job with existing job"""
+        """Test create GitLab.IGLEnrich job with existing job"""
         job1 = self.enrich1.create_job(self.worker1)
         job2 = self.enrich1.create_job(self.worker1)
         self.assertEqual(job1.worker, self.worker1)
@@ -100,57 +100,42 @@ class TestSelectableIntentions(TestCase):
         self.user1 = User.objects.create(username='1')
 
         self.user2 = User.objects.create(username='2')
-        self.ienrich_U2_1 = GLIEnrich.objects.create(repo=self.repo1, user=self.user2,
-                                                     status=Intention.Status.READY)
+        self.ienrich_U2_1 = IGLEnrich.objects.create(repo=self.repo1, user=self.user2)
+
         self.user3 = User.objects.create(username='3')
-        self.ienrich_U3_1 = GLIEnrich.objects.create(repo=self.repo1, user=self.user3,
-                                                     status=Intention.Status.READY)
-        self.ienrich_U3_2 = GLIEnrich.objects.create(repo=self.repo2, user=self.user3,
-                                                     status=Intention.Status.READY)
-        self.user4 = User.objects.create(username='4')
-        self.ienrich_U4_1 = GLIEnrich.objects.create(repo=self.repo1, user=self.user4,
-                                                     status=Intention.Status.READY)
-        self.ienrich_U4_2 = GLIEnrich.objects.create(repo=self.repo2, user=self.user4,
-                                                     status=Intention.Status.WORKING)
+        self.ienrich_U3_1 = IGLEnrich.objects.create(repo=self.repo1, user=self.user3)
+        self.ienrich_U3_2 = IGLEnrich.objects.create(repo=self.repo2, user=self.user3)
 
         self.user5 = User.objects.create(username='5')
-        self.ienrich_U5_1 = GLIEnrich.objects.create(repo=self.repo1, user=self.user5,
-                                                     status=Intention.Status.READY)
+        self.ienrich_U5_1 = IGLEnrich.objects.create(repo=self.repo1, user=self.user5)
         self.job_U5 = Job.objects.create()
-        self.ienrich_U5_2 = GLIEnrich.objects.create(repo=self.repo2, user=self.user5,
-                                                     status=Intention.Status.READY,
+        self.ienrich_U5_2 = IGLEnrich.objects.create(repo=self.repo2, user=self.user5,
                                                      job=self.job_U5)
 
     def test_user_1(self):
         """Test not available intentions"""
-        intentions = GLIEnrich.objects.selectable_intentions(user=self.user1)
+        intentions = IGLEnrich.objects.selectable_intentions(user=self.user1)
         self.assertEqual(len(intentions), 0)
 
     def test_user_2(self):
         """Test one intention ready"""
-        intentions = GLIEnrich.objects.selectable_intentions(user=self.user2)
+        intentions = IGLEnrich.objects.selectable_intentions(user=self.user2)
         self.assertEqual(len(intentions), 1)
         self.assertEqual(intentions[0], self.ienrich_U2_1)
 
     def test_user_3(self):
         """Test two intentions ready, get 1"""
-        intentions = GLIEnrich.objects.selectable_intentions(user=self.user3, max=1)
+        intentions = IGLEnrich.objects.selectable_intentions(user=self.user3, max=1)
         self.assertEqual(len(intentions), 1)
         self.assertIn(intentions[0], [self.ienrich_U3_1, self.ienrich_U3_2])
 
     def test_user_3b(self):
         """Test two intentions ready, get 2"""
-        intentions = GLIEnrich.objects.selectable_intentions(user=self.user3, max=2)
+        intentions = IGLEnrich.objects.selectable_intentions(user=self.user3, max=2)
         self.assertEqual(len(intentions), 2)
         self.assertListEqual(list(intentions), [self.ienrich_U3_1, self.ienrich_U3_2])
 
-    def test_user_4(self):
-        """Test one running one ready"""
-        intentions = GLIEnrich.objects.selectable_intentions(user=self.user4, max=2)
-        self.assertEqual(len(intentions), 1)
-        self.assertEqual(intentions[0], self.ienrich_U4_1)
-
     def test_user_5(self):
         """Test one ready and one ready with job"""
-        intentions = GLIEnrich.objects.selectable_intentions(user=self.user5, max=2)
+        intentions = IGLEnrich.objects.selectable_intentions(user=self.user5, max=2)
         self.assertEqual(len(intentions), 1)

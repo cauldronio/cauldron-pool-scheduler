@@ -9,6 +9,8 @@ def github_data(apps, schema_editor):
         name='GitHub',
         endpoint="https://api.github.com")
 
+
+def gitlab_data(apps, schema_editor):
     GLInstance.objects.update_or_create(
         name='GitLab',
         endpoint="https://api.gitlab.com")
@@ -21,5 +23,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(github_data)
+        migrations.RunPython(github_data),
+        migrations.RunPython(gitlab_data)
     ]

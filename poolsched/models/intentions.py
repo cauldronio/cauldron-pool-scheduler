@@ -14,27 +14,20 @@ class Intention(models.Model):
     or "enriched index built".
     """
 
-    class Status(models.TextChoices):
-        WAITING = 'WA', "Waiting"  # Waiting for previous intentions
-        READY = 'RE', "Ready"  # All previous intentions done
-        WORKING = 'WO', "Working"  # Some job working for this intention
-        DONE = 'DO', "Done"  # This intention is done
-
     # Will point to a job when a job is allocated. Several intentions
     # may point to the same job
     job = models.ForeignKey(jobs.Job, on_delete=models.SET_NULL,
                             default=None, null=True, blank=True)
-    # An intention os on behalf of some user
+    # An intention is on behalf of some user
     user = models.ForeignKey('User', on_delete=models.PROTECT,
                              default=None, null=True, blank=True)
-    # An intention may be in one of several states
-    status = models.CharField(max_length=2, choices=Status.choices,
-                              default=Status.WAITING)
     # Directly previous intentions (need to be done before this can be done)
     previous = models.ManyToManyField(
         'self',
         default=None, blank=True, symmetrical=False
     )
+
+    created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         abstract = False

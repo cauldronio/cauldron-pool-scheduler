@@ -19,7 +19,7 @@ class UserManager(models.Manager):
         :returns:   list of User objects
         """
 
-        q = User.objects.filter(intention__status=Intention.Status.READY,
+        q = User.objects.filter(intention__previous=None,
                                 intention__job=None).distinct()
         count = q.count()
         users = [q[i] for i in sample(range(count), min(max, count))]

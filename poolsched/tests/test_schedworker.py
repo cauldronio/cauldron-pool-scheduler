@@ -5,9 +5,9 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils.timezone import now
 
+from ..models import ArchJob
 from ..models import User, Intention, Job
-from ..models.targets.github import GHIRaw as GHIRaw, \
-    GHRepo as GHRepo, GHToken as GHToken
+from ..models.targets.github import IGHRaw, GHRepo, GHToken, IGHRawArchived
 from ..schedworker import SchedWorker
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ def mock_run(intention, job):
     if call_no < 5:
         call_no += 1
         logger.debug(f"Exception: {call_no}.")
-        raise GHIRaw.TokenExhaustedException(token=token)
+        raise IGHRaw.TokenExhaustedException(token=token)
     logger.debug(f"No exception: {call_no}")
 
 
@@ -35,82 +35,69 @@ class TestPoolSched(TestCase):
         """Populate the database
 
         Summary:
-         * User A has three intentions (done, ready, ready), and one ready token
-         * User B has two intentions (done, ready), and one ready token
-         * User C has two intentions (done, ready), and one exhausted token
-         * User D has one intention (done), and one exhausted token
-         * User E has one intention (done), and one exhausted token
-         * User F has no intentions
+         * User A has three intentions (ready, ready), and one ready token
+         * User B has two intentions (ready), and one ready token
+         * User C has two intentions (ready), and exhausted token
+         * User D has no intentions
         """
 
         # Some users
         self.users = [User.objects.create(username=username)
-                      for username in ['A', 'B', 'C', 'D', 'E']]
-        User.objects.create(username='F')
+                      for username in ['A', 'B', 'C', 'D']]
         # Some repos
         self.repos = [GHRepo.objects.create(owner='owner',
                                             repo=repo)
                       for repo in ['R0', 'R1', 'R2', 'R3']]
         repo_count = 0
-        # Five intentions done, one per user, and five tokens (three exhausted)
+        # Five tokens, one per user (three exhausted)
         for user in self.users:
-            intention = GHIRaw.objects.create(
-                user=user,
-                status=Intention.Status.DONE,
-                repo=self.repos[repo_count]
-            )
             repo_count = (repo_count + 1) % len(self.repos)
             token = GHToken.objects.create(
                 token=user.username + "0123456789")
-            # Let's have three exhausted tokens, for users C, D, E
-            if user.username in ['C', 'D', 'E']:
-                token.reset = now() + timedelta(seconds=2)
+            # Let's have a exhausted tokens, for users C
+            if user.username is 'C':
+                token.reset = now() + timedelta(seconds=60)
             token.user = user
             token.save()
-        # Three more intentions, for users A, B, C, all ready
+        # Three intentions, for users A, B, C, all ready
         for user in self.users[:3]:
-            intention = GHIRaw.objects.create(
+            intention = IGHRaw.objects.create(
                 user=user,
-                status=Intention.Status.READY,
                 repo=self.repos[repo_count]
             )
             repo_count = (repo_count + 1) % len(self.repos)
         # One more intention, for user A, ready
         for user in self.users[:1]:
-            intention = GHIRaw.objects.create(
+            intention = IGHRaw.objects.create(
                 user=user,
-                status=Intention.Status.READY,
                 repo=self.repos[repo_count]
             )
 
     def test_init(self):
         # logging.basicConfig(level=logging.DEBUG)
         worker = SchedWorker(run=True, finish=True)
-        for job in Job.objects.all():
-            self.assertEqual(job.status, Job.Status.DONE)
-        for intention in Intention.objects.all():
-            self.assertEqual(intention.status, Intention.Status.DONE)
+        archived_IGHRaw = IGHRawArchived.objects.count()
+        archived_jobs = ArchJob.objects.count()
+        self.assertEqual(archived_IGHRaw, 3)
+        self.assertEqual(archived_jobs, 3)
 
     def test_new_job_manual(self):
         """Test new_job"""
 
         worker = SchedWorker()
-        users = User.objects.random_user_ready(max=2)
+        users = User.objects.random_user_ready(max=4)
         intentions = worker._get_intentions(users=users)
         self.assertEqual(len(intentions), 1)
         job = worker._new_job(intentions)
         self.assertEqual(job.worker, worker.worker)
-        self.assertEqual(job.status, Job.Status.WAITING)
 
     def test_get_new_job(self):
         """Test new_job"""
-
+        # logging.basicConfig(level=logging.DEBUG)
         worker = SchedWorker()
-        job = worker.get_new_job()
+        job = worker.get_new_job(max_users=5)
         self.assertEqual(job.worker, worker.worker)
-        self.assertEqual(job.status, Job.Status.WAITING)
         intention = job.intention_set.first()
-        self.assertEqual(intention.status, Intention.Status.READY)
         tokens = job.ghtokens.all()
         self.assertEqual(len(tokens), 1)
         self.assertEqual(intention.user, tokens[0].user)
@@ -135,8 +122,6 @@ class TestPoolSched(TestCase):
                              expected_intentions[user.username])
             # Check some constraints on intentions found
             for intention in intentions:
-                # Intention is ready
-                self.assertEqual(intention.status, Intention.Status.READY)
                 # Find if there is at least one token with reset time in the future
                 tokens = intention.user.ghtokens.all()
                 token_ready = False
@@ -172,9 +157,9 @@ class TestPoolSched(TestCase):
                                                     max=max)
                 self.assertEqual(len(intentions), min(expected, max))
 
-    @patch.object(GHIRaw, 'run', side_effect=mock_run, autospec=True)
+    @patch.object(IGHRaw, 'run', side_effect=mock_run, autospec=True)
     def test_init2(self, mock_fun):
         #        logging.basicConfig(level=logging.DEBUG)
         worker = SchedWorker(run=True, finish=True)
-        # Run should run 5 times being interrupted, and 4 more (all intentions done)
-        self.assertEqual(mock_fun.call_count, 9)
+        # Run should run 5 times being interrupted, and 3 more (all intentions done)
+        self.assertEqual(mock_fun.call_count, 8)

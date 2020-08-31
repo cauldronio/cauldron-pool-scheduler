@@ -1,6 +1,7 @@
 from logging import getLogger
 
 from django.db import models, IntegrityError, transaction
+from django.db.models import Q
 from django.utils.timezone import now
 
 from ..intentions import Intention
@@ -74,11 +75,10 @@ class IRawManager(models.Manager):
     """Model manager for IGitHubRaw"""
 
     def selectable_intentions(self, user, max=1):
-        """Return a list of selectable GHIRaw intentions for a user
+        """Return a list of selectable IGHRaw intentions for a user
 
         A intention is selectable if:
         * its user has a usable token
-        * it's status is ready
         * no job is still associated with it
         * (future) in fact, either its user has a usable token,
           or there is other (public) token avilable
@@ -87,17 +87,16 @@ class IRawManager(models.Manager):
 
         :param user: user to check
         :param max:  maximum number of intentions to return
-        :returns:    list of GHIRaw intentions
+        :returns:    list of IGHRaw intentions
         """
 
-        intentions = self.filter(status=Intention.Status.READY,
-                                 user=user,
+        intentions = self.filter(user=user,
                                  job=None) \
             .filter(user__ghtoken__reset__lt=now())
         return intentions.all()[:max]
 
 
-class GHIRaw(Intention):
+class IGHRaw(Intention):
     """Intention for producing raw indexes for GitHub repos"""
 
     # GHRepo to analyze
@@ -127,8 +126,12 @@ class GHIRaw(Intention):
         def __str__(self):
             return self.message
 
+    def __str__(self):
+        return f'Repo({self.repo})|User({self.user})|Prev({self.previous})|Job({self.job}))'
+
     @classmethod
-    def next_job(cls):
+    @transaction.atomic
+    def next_job(cls, worker):
         """Find the next job of this model.
 
         To be selected, a job should be waiting, and have a token ready.
@@ -137,9 +140,15 @@ class GHIRaw(Intention):
         :return:           selected job (None if none is ready)
         """
 
-        jobs = Job.objects.filter(status=Job.Status.WAITING) \
-            .filter(ghtoken__reset__lt=now())
-        job = jobs.first()
+        job = None
+        intention = IGHRaw.objects\
+            .select_related('job').select_for_update()\
+            .exclude(job=None).filter(job__worker=None).filter(job__ghtoken__reset__lt=now())\
+            .first()
+        if intention:
+            job = intention.job
+            job.worker = worker
+            job.save()
         return job
 
     def create_previous(self):
@@ -156,7 +165,7 @@ class GHIRaw(Intention):
         :return:          Job object, if it was found, or None, if not
         """
 
-        candidates = self.repo.ghiraw_set.filter(job__isnull=False)
+        candidates = self.repo.ighraw_set.filter(job__isnull=False)
         try:
             # Find intention with job for the same repo, assign job to self
             self.job = candidates[0].job
@@ -166,9 +175,15 @@ class GHIRaw(Intention):
         self.save()
         # Get tokens for the user, and assign them to job
         tokens = GHToken.objects.filter(user=self.user)
+        token_included = False
         for token in tokens:
-            token.jobs.add(self.job)
-        return self.job
+            if token.jobs.count() < token.MAX_JOBS_TOKEN:
+                token_included = True
+                token.jobs.add(self.job)
+        if token_included:
+            return self.job
+        else:
+            return None
 
     def create_job(self, worker):
         """Create a new job for this intention, add it
@@ -189,7 +204,6 @@ class GHIRaw(Intention):
                 for token in tokens:
                     if token.jobs.count() < token.MAX_JOBS_TOKEN:
                         # Available token found, create job if needed
-                        # TODO: Race condition?
                         if self.job is None:
                             job = Job.objects.create(worker=worker)
                             self.job = job
@@ -209,33 +223,38 @@ class GHIRaw(Intention):
         logger.info(f"Running GitHubRaw intention: {repo.owner}/{repo.repo}, token: {token}")
         # raise TokenExhaustedException(token=token) if token exhausted
 
+    def archive(self):
+        """Archive and remove the current intention"""
+        IGHRawArchived.objects.create(user=self.user,
+                                      repo=self.repo,
+                                      created=self.created)
+        self.delete()
+
 
 class IEnrichedManager(models.Manager):
-    """Model manager for GHIEnrich"""
+    """Model manager for IGHEnrich"""
 
     def selectable_intentions(self, user, max=1):
-        """Return a list of selectable GHIEnrich intentions for a user
+        """Return a list of selectable IGHEnrich intentions for a user
 
         A intention is selectable if:
-        * it's status is ready
         * no job is still associated with it
         It's not important if there is other job for the same repo,
         that will be checked later.
 
         :param user: user to check
         :param max:  maximum number of intentions to return
-        :returns:    list of GHIRaw intentions
+        :returns:    list of IGHRaw intentions
         """
 
-        intentions = self.filter(status=Intention.Status.READY,
-                                 user=user,
-                                 job=None)
+        intentions = self.filter(user=user,
+                                 job=None,
+                                 previous=None)
         return intentions.all()[:max]
 
 
-class GHIEnrich(Intention):
+class IGHEnrich(Intention):
     """Intention for producing enriched indexes for GitHub repos"""
-
     # GHRepo to analyze
     repo = models.ForeignKey(GHRepo, on_delete=models.PROTECT)
 
@@ -243,8 +262,13 @@ class GHIEnrich(Intention):
         db_table = TABLE_PREFIX + 'ienriched'
     objects = IEnrichedManager()
 
+    def __str__(self):
+        return f'Repo({self.repo})|User({self.user})|Prev({self.previous})|Job({self.job})'
+
+
     @classmethod
-    def next_job(cls):
+    @transaction.atomic
+    def next_job(cls, worker):
         """Find the next job of this model.
 
         To be selected, a job should be waiting.
@@ -253,15 +277,21 @@ class GHIEnrich(Intention):
         :return:           selected job (None if none is ready)
         """
 
-        jobs = Job.objects.filter(status=Job.Status.WAITING)
-        job = jobs.first()
+        job = None
+        intention = IGHEnrich.objects\
+            .select_related('job').select_for_update()\
+            .exclude(job=None).filter(job__worker=None)\
+            .first()
+        if intention:
+            job = intention.job
+            job.worker = worker
+            job.save()
         return job
 
     def create_previous(self):
         """Create all needed previous intentions"""
-
-        raw_intention = GHIRaw.objects.create(repo=self.repo,
-                                              user=self.user)
+        raw_intention, _ = IGHRaw.objects.get_or_create(repo=self.repo,
+                                                        user=self.user)
         self.previous.add(raw_intention)
         return [raw_intention]
 
@@ -274,7 +304,7 @@ class GHIEnrich(Intention):
         :return: Job object, if it was found, or None, if not
         """
 
-        candidates = self.repo.ghienrich_set.filter(job__isnull=False)
+        candidates = self.repo.ighenrich_set.filter(job__isnull=False)
         try:
             # Find intention with job for the same repo, assign job to self
             self.job = candidates[0].job
@@ -308,3 +338,28 @@ class GHIEnrich(Intention):
         """
 
         logger.info(f"Running GitHubEnrich intention: {self.repo.owner}/{self.repo.repo}")
+
+    def archive(self):
+        """Archive and remove the current intention"""
+        IGHEnrichArchived.objects.create(user=self.user,
+                                         repo=self.repo,
+                                         created=self.created)
+        self.delete()
+
+
+class IGHRawArchived(models.Model):
+    """Archived GitHub Raw intention"""
+    repo = models.ForeignKey(GHRepo, on_delete=models.PROTECT)
+    user = models.ForeignKey('User', on_delete=models.PROTECT,
+                             default=None, null=True, blank=True)
+    created = models.DateTimeField()
+    completed = models.DateTimeField(auto_now_add=True)
+
+
+class IGHEnrichArchived(models.Model):
+    """Archived GitHub Enrich intention"""
+    repo = models.ForeignKey(GHRepo, on_delete=models.PROTECT)
+    user = models.ForeignKey('User', on_delete=models.PROTECT,
+                             default=None, null=True, blank=True)
+    created = models.DateTimeField()
+    completed = models.DateTimeField(auto_now_add=True)
