@@ -14,7 +14,7 @@ from .models.targets.git import IGitRaw
 from .models.targets.git import IGitEnrich
 
 logger = logging.getLogger(__name__)
-# logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 """
 The precedence of a job is governed by the following rules:

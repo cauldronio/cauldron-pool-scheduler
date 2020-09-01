@@ -2,7 +2,7 @@
 # It is configured for getting tasks from a database and running them
 # Build this container from the root of the repository
 
-FROM cauldronio/grimoirelab:0.2.40.pre
+FROM cauldronio/grimoirelab:0.2.45
 
 ENV CODE_WORKER /code
 
@@ -18,9 +18,6 @@ RUN chmod +x /entrypoint.sh
 
 # Install requirements
 RUN pip install -q -r requirements.txt
-
-VOLUME ["/dashboard_logs"]
-VOLUME ["/merge_identities_logs"]
 
 WORKDIR ${CODE_WORKER}/worker/
 ENTRYPOINT ["/entrypoint.sh"]

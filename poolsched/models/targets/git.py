@@ -236,7 +236,7 @@ class IGitEnrich(Intention):
             return None
         return job
 
-    def run(self):
+    def run(self, job):
         """Run the code to fulfill this intention
 
         :return:
