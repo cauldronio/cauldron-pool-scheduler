@@ -1,32 +1,36 @@
 import logging
+import configparser
 
-CONFIG_PATH = 'mordred/setup.cfg'
+import schedconfig
+
 JSON_DIR_PATH = 'projects_json'
 
-logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("mordred-worker")
 
 
 class Backend:
-    def __init__(self, **kwargs):
-        self.config = None
-
     def create_config(self):
-        """Create the configuration file,
-        specific for each backend"""
-        raise NotImplementedError
-
-    def create_projects_file(self):
-        """Create the projects.json for Grimoirelab,
-        specific for each backend"""
+        """Create the configuration files"""
         raise NotImplementedError
 
     def start_analysis(self):
-        """Call to Grimoirelab,
-        specific for each backend"""
+        """Call to Grimoirelab"""
         raise NotImplementedError
 
+    def basic_setup(self):
+        url = 'https://{}:{}@{}:{}'.format(schedconfig.ELASTIC_USER,
+                                           schedconfig.ELASTIC_PASS,
+                                           schedconfig.ELASTIC_HOST,
+                                           schedconfig.ELASTIC_PORT)
+        config = configparser.ConfigParser()
+        with open(schedconfig.MORDRED_CONF, 'r') as f:
+            config.read_file(f)
+        config['es_collection']['url'] = url
+        config['es_enrichment']['url'] = url
+        with open(schedconfig.MORDRED_CONF, 'w+') as f:
+            config.write(f)
+
     def run(self):
-        self.create_projects_file()
-        cfg = self.create_config()
-        self.start_analysis()
+        self.basic_setup()
+        self.create_config()
+        return self.start_analysis()

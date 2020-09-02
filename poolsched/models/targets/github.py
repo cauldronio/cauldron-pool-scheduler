@@ -1,7 +1,6 @@
 from logging import getLogger
 
 from django.db import models, IntegrityError, transaction
-from django.db.models import Q
 from django.utils.timezone import now
 
 from ..intentions import Intention

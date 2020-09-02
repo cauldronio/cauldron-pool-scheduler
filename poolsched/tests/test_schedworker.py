@@ -55,7 +55,7 @@ class TestPoolSched(TestCase):
             token = GHToken.objects.create(
                 token=user.username + "0123456789")
             # Let's have a exhausted tokens, for users C
-            if user.username is 'C':
+            if user.username == 'C':
                 token.reset = now() + timedelta(seconds=60)
             token.user = user
             token.save()

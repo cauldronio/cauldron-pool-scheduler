@@ -2,34 +2,32 @@ import logging
 import json
 import math
 import traceback
-
 import sqlalchemy
+
 from sirmordred.config import Config
 from sirmordred.task_projects import TaskProjects
 from sirmordred.task_collection import TaskRawDataCollection
 from sirmordred.task_enrich import TaskEnrich
 
-
+import schedconfig
 from .base import Backend
 
 
-logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("worker")
 
-PROJECTS_FILE = 'mordred/projects.json'
-CONFIG_PATH = 'mordred/setup.cfg'
+PROJECTS_FILE = 'tmp_projects.json'
 BACKEND_SECTIONS = ['gitlab:issue', 'gitlab:merge']
 
 
 class GitLabRaw(Backend):
     def __init__(self, **kwargs):
-        super().__init__()
+        self.config = None
         self.url = kwargs['url']
         self.token = kwargs['token']
 
-    def create_projects_file(self):
-        """Create the projects.json for Grimoirelab"""
-        logger.info("Creating projects.json for GitLabRaw repository {}".format(self.url))
+    def create_config(self):
+        """Create the configuration files"""
+        logger.info("Creating configuration for Grimoirelab")
         projects = {'Project': {}}
         for section in BACKEND_SECTIONS:
             projects['Project'][section] = [self.url]
@@ -37,9 +35,7 @@ class GitLabRaw(Backend):
         with open(PROJECTS_FILE, 'w+') as f:
             json.dump(projects, f)
 
-    def create_config(self):
-        """Create the configuration file"""
-        self.config = Config(CONFIG_PATH)
+        self.config = Config(schedconfig.MORDRED_CONF)
         for section in BACKEND_SECTIONS:
             self.config.set_param(section, 'api-token', self.token)
         self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
@@ -50,7 +46,6 @@ class GitLabRaw(Backend):
         """
         TaskProjects(self.config).execute()
         for section in BACKEND_SECTIONS:
-            print("==>\tStart raw data retrieval from {}".format(section))
             task = TaskRawDataCollection(self.config, backend_section=section)
 
             try:
@@ -73,21 +68,19 @@ class GitLabRaw(Backend):
 
 class GitLabEnrich(Backend):
     def __init__(self, **kwargs):
-        super().__init__()
+        self.config = None
         self.url = kwargs['url']
 
-    def create_projects_file(self):
-        """Create the projects.json for Grimoirelab"""
-        logger.info("Creating projects.json for GitLabEnrich repository {}".format(self.url))
+    def create_config(self):
+        """Create the configuration files"""
+        logger.info("Creating configuration for Grimoirelab")
         projects = {'Project': {}}
         for section in BACKEND_SECTIONS:
             projects['Project'][section] = [self.url]
         with open(PROJECTS_FILE, 'w+') as f:
             json.dump(projects, f)
 
-    def create_config(self):
-        """Create the configuration file"""
-        self.config = Config(CONFIG_PATH)
+        self.config = Config(schedconfig.MORDRED_CONF)
         self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
 
     def start_analysis(self):
@@ -96,8 +89,6 @@ class GitLabEnrich(Backend):
         """
         TaskProjects(self.config).execute()
         for section in BACKEND_SECTIONS:
-            print("==>\tStart enrichment for {}".format(section))
-
             task = None
             while not task:
                 try:

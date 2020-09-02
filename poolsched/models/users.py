@@ -18,7 +18,7 @@ class UserManager(models.Manager):
         :param max: maximum number of users
         :returns:   list of User objects
         """
-
+        # TODO: Select ONLY USERS WITH INTENTIONS
         q = User.objects.filter(intention__previous=None,
                                 intention__job=None).distinct()
         count = q.count()

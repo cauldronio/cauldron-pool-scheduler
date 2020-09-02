@@ -3,10 +3,15 @@ from logging import getLogger
 from django.db import models, IntegrityError, transaction
 from django.utils.timezone import now
 
+import schedconfig
 from ..intentions import Intention
 from ..jobs import Job
 
+from poolsched.mordred.backends.git import GitEnrich, GitRaw
+from poolsched import utils
+
 logger = getLogger(__name__)
+global_logger = getLogger()
 
 TABLE_PREFIX = 'poolsched_git'
 
@@ -41,8 +46,7 @@ class IRawManager(models.Manager):
         """
 
         intentions = self.filter(user=user,
-                                 job=None,
-                                 previous=None)
+                                 job=None)
         return intentions.all()[:max]
 
 
@@ -125,9 +129,14 @@ class IGitRaw(Intention):
 
         :param job: job to be run
         """
-
-        repo = self.repo
-        logger.info(f"Running GitRaw intention: {repo.url}")
+        logger.info(f"Running GitRaw intention: {self.repo.url}")
+        fh = utils.file_formatter(f"job-{job.id}.log")
+        global_logger.addHandler(fh)
+        runner = GitRaw(self.repo.url, schedconfig.GIT_REPOS)
+        output = runner.run()
+        global_logger.removeHandler(fh)
+        if output:
+            raise Job.StopException
 
     def archive(self):
         """Archive and remove the current intention"""
@@ -242,6 +251,13 @@ class IGitEnrich(Intention):
         :return:
         """
         logger.info(f"Running GitEnrich intention: {self.repo.url}")
+        fh = utils.file_formatter(f"job-{job.id}.log")
+        global_logger.addHandler(fh)
+        runner = GitEnrich(self.repo.url)
+        output = runner.run()
+        global_logger.removeHandler(fh)
+        if output:
+            raise Job.StopException
 
     def archive(self):
         """Archive and remove the current intention"""

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 
 import os
+import schedconfig
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -81,6 +82,23 @@ DATABASES = {
     }
 }
 
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': schedconfig.DB_NAME,
+#         'USER': schedconfig.DB_USER,
+#         'PASSWORD': schedconfig.DB_PASSWORD,
+#         'HOST': schedconfig.DB_HOST,
+#         'PORT': schedconfig.DB_PORT,
+#         'OPTIONS': {
+#             'sql_mode': 'traditional'
+#         },
+#         'TEST': {
+#             'CHARSET': 'utf8'
+#         }
+#     }
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/3.0/ref/settings/#auth-password-validators

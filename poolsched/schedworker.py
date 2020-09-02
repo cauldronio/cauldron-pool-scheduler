@@ -3,6 +3,7 @@ API for poolsched (scheduling of a pool of tasks)
 """
 
 import logging
+import traceback
 from time import sleep
 
 from django.forms.models import model_to_dict
@@ -10,11 +11,10 @@ from django.forms.models import model_to_dict
 from .models import Worker, Intention, User, Job, ArchJob
 from .models.targets.github import IGHRaw, IGHEnrich
 from .models.targets.gitlab import IGLRaw, IGLEnrich
-from .models.targets.git import IGitRaw
-from .models.targets.git import IGitEnrich
+from .models.targets.git import IGitRaw, IGitEnrich
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 """
 The precedence of a job is governed by the following rules:
@@ -136,6 +136,7 @@ class SchedWorker:
             job.save()
         except Exception as e:
             logger.error(f"Other exception (error?): {job}, {e}")
+            traceback.print_exc()
             job.worker = None
             job.save()
         return job

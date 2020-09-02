@@ -1,50 +1,44 @@
 import logging
 import json
 import traceback
-
 import sqlalchemy
+
 from sirmordred.config import Config
 from sirmordred.task_projects import TaskProjects
 from sirmordred.task_collection import TaskRawDataCollection
 from sirmordred.task_enrich import TaskEnrich
 
-
 from .base import Backend
+import schedconfig
 
 
-logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("worker")
 
-PROJECTS_FILE = 'mordred/projects.json'
-CONFIG_PATH = 'mordred/setup.cfg'
+PROJECTS_FILE = 'tmp_projects.json'
 BACKEND_SECTION = 'git'
 
 
 class GitRaw(Backend):
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.url = kwargs['url']
-        self.clone_path = kwargs['clone_path']
+    def __init__(self, url, clone_path):
+        self.config = None
+        self.url = url
+        self.clone_path = clone_path
 
-    def create_projects_file(self):
-        """Create the projects.json for Grimoirelab"""
-        logger.info("Creating projects.json for GitRaw repository {}".format(self.url))
+    def create_config(self):
+        """Create the configuration files"""
+        logger.info("Creating configuration for Grimoirelab")
+        self.config = Config(schedconfig.MORDRED_CONF)
+        self.config.set_param(BACKEND_SECTION, 'git-path', self.clone_path)
+        self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
         projects = {'Project': {BACKEND_SECTION: [self.url]}}
         with open(PROJECTS_FILE, 'w+') as f:
             json.dump(projects, f)
-
-    def create_config(self):
-        """Create the configuration file"""
-        self.config = Config(CONFIG_PATH)
-        self.config.set_param(BACKEND_SECTION, 'git-path', self.clone_path)
-        self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
 
     def start_analysis(self):
         """ Execute the analysis for this backend.
         Return 0 or None for success, 1 for error
         """
         TaskProjects(self.config).execute()
-        print("==>\tStart raw data retrieval from Git")
         task = TaskRawDataCollection(self.config, backend_section=BACKEND_SECTION)
         try:
             out_repos = task.execute()
@@ -59,28 +53,24 @@ class GitRaw(Backend):
 
 
 class GitEnrich(Backend):
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.url = kwargs['url']
+    def __init__(self, url):
+        self.config = None
+        self.url = url
 
-    def create_projects_file(self):
-        """Create the projects.json for Grimoirelab"""
-        logger.info("Creating projects.json for GitEnrich repository {}".format(self.url))
+    def create_config(self):
+        """Create the configuration files"""
+        logger.info("Creating configuration for Grimoirelab")
+        self.config = Config(schedconfig.MORDRED_CONF)
+        self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
         projects = {'Project': {'git': [self.url]}}
         with open(PROJECTS_FILE, 'w+') as f:
             json.dump(projects, f)
-
-    def create_config(self):
-        """Create the configuration file"""
-        self.config = Config(CONFIG_PATH)
-        self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
 
     def start_analysis(self):
         """ Execute the analysis for this backend.
         Return 0 or None for success, 1 for error
         """
         TaskProjects(self.config).execute()
-        print("==>\tStart enrichment for Git")
         task = None
         while not task:
             try:

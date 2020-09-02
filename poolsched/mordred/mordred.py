@@ -10,7 +10,7 @@ from backends.github import GitHubRaw, GitHubEnrich
 from backends.gitlab import GitLabRaw, GitLabEnrich
 from backends.meetup import MeetupRaw, MeetupEnrich
 
-CONFIG_PATH = 'mordred/setup.cfg'
+import schedconfig
 
 LOG_LEVEL = os.getenv('LOG_LEVEL', '')
 ES_USER = os.getenv('ELASTIC_USER', 'admin')
@@ -37,7 +37,6 @@ CONNECTORS = {
     }
 }
 
-logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("worker")
 
 
@@ -78,11 +77,11 @@ def get_connector(backend, phase):
 def update_base_setup():
     url = 'https://{}:{}@{}:{}'.format(ES_USER, ES_PASS, ES_HOST, ES_PORT)
     config = configparser.ConfigParser()
-    with open(CONFIG_PATH, 'r') as f:
+    with open(schedconfig.MORDRED_CONF, 'r') as f:
         config.read_file(f)
     config['es_collection']['url'] = url
     config['es_enrichment']['url'] = url
-    with open(CONFIG_PATH, 'w+') as f:
+    with open(schedconfig.MORDRED_CONF, 'w+') as f:
         config.write(f)
 
 

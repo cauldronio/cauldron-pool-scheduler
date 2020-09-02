@@ -2,43 +2,38 @@ import logging
 import json
 import math
 import traceback
-
 import sqlalchemy
+
 from sirmordred.config import Config
 from sirmordred.task_projects import TaskProjects
 from sirmordred.task_collection import TaskRawDataCollection
 from sirmordred.task_enrich import TaskEnrich
 
-
 from .base import Backend
+import schedconfig
 
-
-logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("worker")
 
-PROJECTS_FILE = 'mordred/projects.json'
-CONFIG_PATH = 'mordred/setup.cfg'
+PROJECTS_FILE = 'tmp_projects.json'
 BACKEND_SECTION = 'meetup'
 
 
 class MeetupRaw(Backend):
     def __init__(self, **kwargs):
-        super().__init__()
+        self.config = None
         self.url = kwargs['url']
         self.token = kwargs['token']
 
-    def create_projects_file(self):
-        """Create the projects.json for Grimoirelab"""
-        logger.info("Creating projects.json for MeetupRaw repository {}".format(self.url))
+    def create_config(self):
+        """Create the configuration files"""
+        logger.info("Creating configuration for Grimoirelab")
         projects = {'Project': {}}
-        projects['Project'][section] = [self.url]
+        projects['Project'][BACKEND_SECTION] = [self.url]
 
         with open(PROJECTS_FILE, 'w+') as f:
             json.dump(projects, f)
 
-    def create_config(self):
-        """Create the configuration file"""
-        self.config = Config(CONFIG_PATH)
+        self.config = Config(schedconfig.MORDRED_CONF)
         self.config.set_param(BACKEND_SECTION, 'api-token', self.token)
         self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
 
@@ -48,9 +43,7 @@ class MeetupRaw(Backend):
         """
         TaskProjects(self.config).execute()
 
-        print("==>\tStart raw data retrieval from Meetup")
         task = TaskRawDataCollection(self.config, backend_section=BACKEND_SECTION)
-
         try:
             out_repos = task.execute()
             repo = out_repos[0]
@@ -71,20 +64,18 @@ class MeetupRaw(Backend):
 
 class MeetupEnrich(Backend):
     def __init__(self, **kwargs):
-        super().__init__()
+        self.config = None
         self.url = kwargs['url']
 
-    def create_projects_file(self):
-        """Create the projects.json for Grimoirelab"""
-        logger.info("Creating projects.json for MeetupEnrich repository {}".format(self.url))
+    def create_config(self):
+        """Create the configuration files"""
+        logger.info("Creating configuration for Grimoirelab")
         projects = {'Project': {}}
         projects['Project'][BACKEND_SECTION] = [self.url]
         with open(PROJECTS_FILE, 'w+') as f:
             json.dump(projects, f)
 
-    def create_config(self):
-        """Create the configuration file"""
-        self.config = Config(CONFIG_PATH)
+        self.config = Config(schedconfig.MORDRED_CONF)
         self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
 
     def start_analysis(self):
@@ -92,8 +83,6 @@ class MeetupEnrich(Backend):
         Return 0 or None for success, 1 for error
         """
         TaskProjects(self.config).execute()
-        print("==>\tStart enrichment for Meetup")
-
         task = None
         while not task:
             try:
