@@ -11,12 +11,12 @@ from ..models.targets.github import IGHRaw, GHRepo, GHToken, IGHRawArchived
 from ..schedworker import SchedWorker
 
 logger = logging.getLogger(__name__)
-# logging.basicConfig(level=logging.WARNING)
 
 call_no = 0
 
 
 def mock_run(intention, job):
+    """ Raise TokenExhaustedException 5 times and then return None"""
     repo = intention.repo
     token = job.ghtokens.filter(reset__lt=now()).first()
     logger.debug(f"Mock running GitHubRaw intention: {repo.owner}/{repo.repo}, token: {token}")
@@ -26,6 +26,12 @@ def mock_run(intention, job):
         logger.debug(f"Exception: {call_no}.")
         raise IGHRaw.TokenExhaustedException(token=token)
     logger.debug(f"No exception: {call_no}")
+
+
+def mock_skip_run(intention, job):
+    """Skip the execution of the run method and return always None"""
+    logger.debug(f"Skip run method for intention {intention.id}, job {job}")
+    return None
 
 
 class TestPoolSched(TestCase):
@@ -73,7 +79,8 @@ class TestPoolSched(TestCase):
                 repo=self.repos[repo_count]
             )
 
-    def test_init(self):
+    @patch.object(IGHRaw, 'run', side_effect=mock_skip_run, autospec=True)
+    def test_init(self, mock_skip_run):
         # logging.basicConfig(level=logging.DEBUG)
         worker = SchedWorker(run=True, finish=True)
         archived_IGHRaw = IGHRawArchived.objects.count()
@@ -81,7 +88,8 @@ class TestPoolSched(TestCase):
         self.assertEqual(archived_IGHRaw, 3)
         self.assertEqual(archived_jobs, 3)
 
-    def test_new_job_manual(self):
+    @patch.object(IGHRaw, 'run', side_effect=mock_skip_run, autospec=True)
+    def test_new_job_manual(self, mock_skip_run):
         """Test new_job"""
 
         worker = SchedWorker()
@@ -91,7 +99,8 @@ class TestPoolSched(TestCase):
         job = worker._new_job(intentions)
         self.assertEqual(job.worker, worker.worker)
 
-    def test_get_new_job(self):
+    @patch.object(IGHRaw, 'run', side_effect=mock_skip_run, autospec=True)
+    def test_get_new_job(self, mock_skip_run):
         """Test new_job"""
         # logging.basicConfig(level=logging.DEBUG)
         worker = SchedWorker()
@@ -102,7 +111,8 @@ class TestPoolSched(TestCase):
         self.assertEqual(len(tokens), 1)
         self.assertEqual(intention.user, tokens[0].user)
 
-    def test_get_intentions(self):
+    @patch.object(IGHRaw, 'run', side_effect=mock_skip_run, autospec=True)
+    def test_get_intentions(self, mock_skip_run):
         """Test get_intentions, for a single user"""
 
         # Expected intentions ready (per user)
@@ -134,7 +144,8 @@ class TestPoolSched(TestCase):
                     "No token ready, but was selected to run: " + str(tokens)
                 )
 
-    def test_get_intentions2(self):
+    @patch.object(IGHRaw, 'run', side_effect=mock_skip_run, autospec=True)
+    def test_get_intentions2(self, mock_skip_run):
         """Test get_intentions, calling it with two users"""
 
         # Expected intentions ready (per user)
