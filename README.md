@@ -132,3 +132,19 @@ Those files are Python modules implementing classes for the intentions
 (inheriting from Intention, with a separate table), and other auxiliary
 classes. For example, for GitHub, we have GHInstance, GHRepo, and GHToken as
 auxiliary model classes, and IGHRaw and IGHEnrich as Intention classes.
+
+## Run
+Currently the only way to run the scheduler is using a Docker container or you will need to install all the Grimoirelab dependencies.
+ 
+To create a new image run the following command from the root of the repository:
+
+``` 
+docker build -f docker/Dockerfile -t cauldronio/poolsched:testing .
+```
+You will need to set some configuration variables. An example file is `docker/scheduler-vars.env`, you can use it with your custom configuration. It works with the default configuration in Cauldron.
+
+To run the container, you can run the following command:
+
+```
+docker run -ti --rm --network=network_cauldron --env-file scheduler-vars.env --name schedworker cauldronio/poolsched:testing
+```

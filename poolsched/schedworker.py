@@ -14,7 +14,7 @@ from .models.targets.gitlab import IGLRaw, IGLEnrich
 from .models.targets.git import IGitRaw, IGitEnrich
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
 
 """
 The precedence of a job is governed by the following rules:
