@@ -3,12 +3,12 @@ import configparser
 
 import schedconfig
 
-JSON_DIR_PATH = 'projects_json'
-
 logger = logging.getLogger("mordred-worker")
 
 
 class Backend:
+    mordred_file = schedconfig.MORDRED_CONF
+
     def create_config(self):
         """Create the configuration files"""
         raise NotImplementedError

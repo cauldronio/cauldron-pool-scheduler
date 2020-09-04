@@ -10,3 +10,7 @@ def file_formatter(filename):
     fh.setLevel(logging.INFO)
     fh.setFormatter(formatter)
     return fh
+
+
+def mordred_not_imported(*args, **kwargs):
+    raise Exception("Mordred was not imported. There was a previous exception.")

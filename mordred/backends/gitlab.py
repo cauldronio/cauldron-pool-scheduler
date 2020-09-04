@@ -9,17 +9,16 @@ from sirmordred.task_projects import TaskProjects
 from sirmordred.task_collection import TaskRawDataCollection
 from sirmordred.task_enrich import TaskEnrich
 
-import schedconfig
 from .base import Backend
 
 
-logger = logging.getLogger("worker")
+logger = logging.getLogger(__name__)
 
 PROJECTS_FILE = 'tmp_projects.json'
-BACKEND_SECTIONS = ['github:issue', 'github:repo', 'github2:issue']
+BACKEND_SECTIONS = ['gitlab:issue', 'gitlab:merge']
 
 
-class GitHubRaw(Backend):
+class GitLabRaw(Backend):
     def __init__(self, **kwargs):
         self.config = None
         self.url = kwargs['url']
@@ -35,7 +34,7 @@ class GitHubRaw(Backend):
         with open(PROJECTS_FILE, 'w+') as f:
             json.dump(projects, f)
 
-        self.config = Config(schedconfig.MORDRED_CONF)
+        self.config = Config(self.mordred_file)
         for section in BACKEND_SECTIONS:
             self.config.set_param(section, 'api-token', self.token)
         self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
@@ -66,7 +65,7 @@ class GitHubRaw(Backend):
                 return 1
 
 
-class GitHubEnrich(Backend):
+class GitLabEnrich(Backend):
     def __init__(self, **kwargs):
         self.config = None
         self.url = kwargs['url']
@@ -80,7 +79,7 @@ class GitHubEnrich(Backend):
         with open(PROJECTS_FILE, 'w+') as f:
             json.dump(projects, f)
 
-        self.config = Config(schedconfig.MORDRED_CONF)
+        self.config = Config(self.mordred_file)
         self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
 
     def start_analysis(self):

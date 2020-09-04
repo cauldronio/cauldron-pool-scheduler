@@ -1,17 +1,22 @@
-from logging import getLogger
+import logging
 
 from django.db import models, IntegrityError, transaction
 from django.utils.timezone import now
 
 import schedconfig
+from poolsched import utils
 from ..intentions import Intention
 from ..jobs import Job
 
-from poolsched.mordred.backends.git import GitEnrich, GitRaw
-from poolsched import utils
+try:
+    from mordred.backends.git import GitEnrich, GitRaw
+except ImportError as exc:
+    logging.error(f'[EXPECTED] {exc}')
+    GitEnrich = utils.mordred_not_imported
+    GitRaw = utils.mordred_not_imported
 
-logger = getLogger(__name__)
-global_logger = getLogger()
+logger = logging.getLogger(__name__)
+global_logger = logging.getLogger()
 
 TABLE_PREFIX = 'poolsched_git'
 
@@ -281,4 +286,3 @@ class IGitEnrichArchived(models.Model):
                              default=None, null=True, blank=True)
     created = models.DateTimeField()
     completed = models.DateTimeField(auto_now_add=True)
-

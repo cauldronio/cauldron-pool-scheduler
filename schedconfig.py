@@ -3,7 +3,7 @@ import random
 
 SECRET_KEY = "".join([random.choice("abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)") for i in range(50)])
 
-MORDRED_CONF = 'poolsched/mordred/setup.cfg'
+MORDRED_CONF = 'mordred/setup.cfg'
 GIT_REPOS = os.environ.get('GIT_REPOS')
 
 DB_NAME = os.environ.get('DB_NAME')

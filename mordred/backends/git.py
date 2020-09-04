@@ -1,6 +1,5 @@
 import logging
 import json
-import math
 import traceback
 import sqlalchemy
 
@@ -9,74 +8,62 @@ from sirmordred.task_projects import TaskProjects
 from sirmordred.task_collection import TaskRawDataCollection
 from sirmordred.task_enrich import TaskEnrich
 
-from .base import Backend
-import schedconfig
+from backends.base import Backend
 
-logger = logging.getLogger("worker")
+
+logger = logging.getLogger(__name__)
 
 PROJECTS_FILE = 'tmp_projects.json'
-BACKEND_SECTION = 'meetup'
+BACKEND_SECTION = 'git'
 
 
-class MeetupRaw(Backend):
-    def __init__(self, **kwargs):
+class GitRaw(Backend):
+    def __init__(self, url, clone_path):
         self.config = None
-        self.url = kwargs['url']
-        self.token = kwargs['token']
+        self.url = url
+        self.clone_path = clone_path
 
     def create_config(self):
         """Create the configuration files"""
         logger.info("Creating configuration for Grimoirelab")
-        projects = {'Project': {}}
-        projects['Project'][BACKEND_SECTION] = [self.url]
-
+        self.config = Config(self.mordred_file)
+        self.config.set_param(BACKEND_SECTION, 'git-path', self.clone_path)
+        self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
+        projects = {'Project': {BACKEND_SECTION: [self.url]}}
         with open(PROJECTS_FILE, 'w+') as f:
             json.dump(projects, f)
 
-        self.config = Config(schedconfig.MORDRED_CONF)
-        self.config.set_param(BACKEND_SECTION, 'api-token', self.token)
-        self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
-
     def start_analysis(self):
         """ Execute the analysis for this backend.
-        Return 0 or None for success, 1 for error, other for time to reset in minutes
+        Return 0 or None for success, 1 for error
         """
         TaskProjects(self.config).execute()
-
         task = TaskRawDataCollection(self.config, backend_section=BACKEND_SECTION)
         try:
             out_repos = task.execute()
             repo = out_repos[0]
             if 'error' in repo and repo['error']:
                 logger.error(repo['error'])
-                if repo['error'].startswith('RateLimitError'):
-                    seconds_to_reset = float(repo['error'].split(' ')[-1])
-                    restart_minutes = math.ceil(seconds_to_reset/60) + 2
-                    logger.warning("RateLimitError. This task will be restarted in: "
-                                   "{} minutes".format(restart_minutes))
-                    return restart_minutes
-
+                return 1
         except Exception as e:
-            logger.error("Error in raw data retrieval from {}. Cause: {}".format(section, e))
+            logger.error("Error in raw data retrieval from Git. Cause: {}".format(e))
             traceback.print_exc()
             return 1
 
 
-class MeetupEnrich(Backend):
-    def __init__(self, **kwargs):
+class GitEnrich(Backend):
+    def __init__(self, url):
         self.config = None
-        self.url = kwargs['url']
+        self.url = url
 
     def create_config(self):
         """Create the configuration files"""
         logger.info("Creating configuration for Grimoirelab")
-        projects = {'Project': {}}
-        projects['Project'][BACKEND_SECTION] = [self.url]
+        self.config = Config(self.mordred_file)
+        self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
+        projects = {'Project': {'git': [self.url]}}
         with open(PROJECTS_FILE, 'w+') as f:
             json.dump(projects, f)
-
-        self.config = Config(schedconfig.MORDRED_CONF)
-        self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
 
     def start_analysis(self):
         """ Execute the analysis for this backend.
@@ -94,6 +81,6 @@ class MeetupEnrich(Backend):
         try:
             task.execute()
         except Exception as e:
-            logger.warning("Error enriching data for Meetup. Cause: {}".format(e))
+            logger.warning("Error enriching data for Git. Cause: {}".format(e))
             traceback.print_exc()
             return 1
