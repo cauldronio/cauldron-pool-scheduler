@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 
 import os
-import schedconfig
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -20,8 +19,14 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
 
+GIT_REPOS = os.environ.get('GIT_REPOS')
+
+ES_IN_HOST = os.environ.get('ELASTIC_HOST')
+ES_IN_PORT = os.environ.get('ELASTIC_PORT')
+ES_ADMIN_PASSWORD = os.environ.get('ELASTIC_PASS')
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'fo1dop9gtx8vqa034f5=ta^bp&@e64)t&t54wx-ci4ybb#2m5z'
+SECRET_KEY = os.environ.get('SECRET_KEY', ')z^&@havbcsr^x1t9fnlf@zl07y$&s1=6en94gf_s#898xy(ecjwl9gi$a66')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -86,11 +91,11 @@ DATABASES = {
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': schedconfig.DB_NAME,
-#         'USER': schedconfig.DB_USER,
-#         'PASSWORD': schedconfig.DB_PASSWORD,
-#         'HOST': schedconfig.DB_HOST,
-#         'PORT': schedconfig.DB_PORT,
+#         'NAME': os.environ.get('DB_NAME'),
+#         'USER': os.environ.get('DB_USER'),
+#         'PASSWORD': os.environ.get('DB_PASSWORD'),
+#         'HOST': os.environ.get('DB_HOST'),
+#         'PORT': os.environ.get('DB_PORT'),
 #         'OPTIONS': {
 #             'sql_mode': 'traditional'
 #         },

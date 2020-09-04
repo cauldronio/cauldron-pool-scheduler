@@ -1,13 +1,13 @@
 import logging
 import configparser
 
-import schedconfig
+from django.conf import settings
 
 logger = logging.getLogger("mordred-worker")
 
 
 class Backend:
-    mordred_file = schedconfig.MORDRED_CONF
+    mordred_file = 'mordred/setup.cfg'
 
     def create_config(self):
         """Create the configuration files"""
@@ -18,16 +18,16 @@ class Backend:
         raise NotImplementedError
 
     def basic_setup(self):
-        url = 'https://{}:{}@{}:{}'.format(schedconfig.ELASTIC_USER,
-                                           schedconfig.ELASTIC_PASS,
-                                           schedconfig.ELASTIC_HOST,
-                                           schedconfig.ELASTIC_PORT)
+        url = 'https://admin:{}@{}:{}'.format(settings.ES_ADMIN_PASSWORD,
+                                              settings.ES_IN_HOST,
+                                              settings.ES_IN_PORT)
         config = configparser.ConfigParser()
-        with open(schedconfig.MORDRED_CONF, 'r') as f:
+        with open(self.mordred_file, 'r') as f:
             config.read_file(f)
         config['es_collection']['url'] = url
         config['es_enrichment']['url'] = url
-        with open(schedconfig.MORDRED_CONF, 'w+') as f:
+        config['git']['git-path'] = settings.GIT_REPOS
+        with open(self.mordred_file, 'w+') as f:
             config.write(f)
 
     def run(self):

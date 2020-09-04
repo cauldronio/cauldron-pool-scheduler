@@ -8,7 +8,7 @@ from sirmordred.task_projects import TaskProjects
 from sirmordred.task_collection import TaskRawDataCollection
 from sirmordred.task_enrich import TaskEnrich
 
-from backends.base import Backend
+from .base import Backend
 
 
 logger = logging.getLogger(__name__)
@@ -18,16 +18,14 @@ BACKEND_SECTION = 'git'
 
 
 class GitRaw(Backend):
-    def __init__(self, url, clone_path):
+    def __init__(self, url):
         self.config = None
         self.url = url
-        self.clone_path = clone_path
 
     def create_config(self):
         """Create the configuration files"""
         logger.info("Creating configuration for Grimoirelab")
         self.config = Config(self.mordred_file)
-        self.config.set_param(BACKEND_SECTION, 'git-path', self.clone_path)
         self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
         projects = {'Project': {BACKEND_SECTION: [self.url]}}
         with open(PROJECTS_FILE, 'w+') as f:

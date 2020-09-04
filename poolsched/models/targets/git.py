@@ -3,7 +3,6 @@ import logging
 from django.db import models, IntegrityError, transaction
 from django.utils.timezone import now
 
-import schedconfig
 from poolsched import utils
 from ..intentions import Intention
 from ..jobs import Job
@@ -24,7 +23,7 @@ TABLE_PREFIX = 'poolsched_git'
 class GitRepo(models.Model):
     """Git repository"""
 
-    url = models.CharField(max_length=256, unique=True)
+    url = models.CharField(max_length=255, unique=True)
 
     # When the repo was created in the scheduler
     created = models.DateTimeField(default=now, blank=True)
@@ -137,7 +136,7 @@ class IGitRaw(Intention):
         logger.info(f"Running GitRaw intention: {self.repo.url}")
         fh = utils.file_formatter(f"job-{job.id}.log")
         global_logger.addHandler(fh)
-        runner = GitRaw(self.repo.url, schedconfig.GIT_REPOS)
+        runner = GitRaw(self.repo.url)
         output = runner.run()
         global_logger.removeHandler(fh)
         if output:
