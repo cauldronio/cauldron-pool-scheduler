@@ -1,10 +1,12 @@
 import logging
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from ....models import Intention
-from ....models import Job, User, Worker
+from ....models import Job, Worker
 from ....models.targets.git import GitRepo, IGitEnrich
+
+User = get_user_model()
 
 logger = logging.getLogger(__name__)
 

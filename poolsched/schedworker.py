@@ -5,13 +5,17 @@ API for poolsched (scheduling of a pool of tasks)
 import logging
 import traceback
 from time import sleep
+from random import sample
 
 from django.forms.models import model_to_dict
+from django.contrib.auth import get_user_model
 
-from .models import Worker, Intention, User, Job, ArchJob
+from .models import Worker, Intention, Job, ArchJob
 from .models.targets.github import IGHRaw, IGHEnrich
 from .models.targets.gitlab import IGLRaw, IGLEnrich
 from .models.targets.git import IGitRaw, IGitEnrich
+
+User = get_user_model()
 
 logger = logging.getLogger(__name__)
 # logging.basicConfig(level=logging.DEBUG)
@@ -30,6 +34,22 @@ class SchedWorker:
 
     # List of workers currently working
     workers = []
+
+    def _get_random_user_ready(self, max=1):
+        """Get random user ids, for users with ready Intentions.
+
+        Ready intentions are those that are in READY status (do not have
+        pending previous intentions), and still don't have a job.
+
+        :param max: maximum number of users
+        :returns:   list of User objects
+        """
+        # TODO: Select ONLY USERS WITH INTENTIONS
+        q = User.objects.filter(intention__previous=None,
+                                intention__job=None).distinct()
+        count = q.count()
+        users = [q[i] for i in sample(range(count), min(max, count))]
+        return users
 
     def _get_intentions(self, users, max=1):
         """Get intentions suitable to run, for a list of users
@@ -94,7 +114,7 @@ class SchedWorker:
         :returns: job ready to run, or None
         """
 
-        users = User.objects.random_user_ready(max=max_users)
+        users = self._get_random_user_ready(max=max_users)
         logger.debug("get_job() users: " + str(users))
         intentions = self._get_intentions(users=users, max=max_intentions)
         logger.debug("get_job() intentions: " + str(intentions))

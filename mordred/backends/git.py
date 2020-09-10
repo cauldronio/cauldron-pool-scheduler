@@ -3,10 +3,17 @@ import json
 import traceback
 import sqlalchemy
 
-from sirmordred.config import Config
-from sirmordred.task_projects import TaskProjects
-from sirmordred.task_collection import TaskRawDataCollection
-from sirmordred.task_enrich import TaskEnrich
+try:
+    from sirmordred.config import Config
+    from sirmordred.task_projects import TaskProjects
+    from sirmordred.task_collection import TaskRawDataCollection
+    from sirmordred.task_enrich import TaskEnrich
+except ImportError:
+    from . import sirmordred_fake
+    Config = sirmordred_fake.Config
+    TaskProjects = sirmordred_fake.TaskProjects
+    TaskRawDataCollection = sirmordred_fake.TaskRawDataCollection
+    TaskEnrich = sirmordred_fake.TaskEnrich
 
 from .base import Backend
 

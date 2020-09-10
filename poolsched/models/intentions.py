@@ -1,6 +1,7 @@
 from logging import getLogger
 
 from django.db import models
+from django.conf import settings
 
 from . import jobs
 
@@ -19,7 +20,7 @@ class Intention(models.Model):
     job = models.ForeignKey(jobs.Job, on_delete=models.SET_NULL,
                             default=None, null=True, blank=True)
     # An intention is on behalf of some user
-    user = models.ForeignKey('User', on_delete=models.PROTECT,
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
                              default=None, null=True, blank=True)
     # Directly previous intentions (need to be done before this can be done)
     previous = models.ManyToManyField(

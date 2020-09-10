@@ -1,10 +1,7 @@
 from .intentions import Intention
-from .targets import github
-from .targets import git
+from .targets import git, github, gitlab
 from .jobs import Job, ArchJob
 from .workers import Worker
-from .users import User
-# from .resources import Resource
 
 
-__all__ = ['Intention', 'Job', 'ArchJob', 'Worker', 'User', 'github', 'git']
+__all__ = ['Intention', 'Job', 'ArchJob', 'Worker', 'github', 'git', 'gitlab']

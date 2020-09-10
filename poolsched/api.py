@@ -4,9 +4,13 @@ API for Django server to create new intentions
 
 import logging
 
+from django.contrib.auth import get_user_model
+
 from poolsched.models.targets.github import IGHRaw, IGHEnrich, GHToken, GHRepo, GHInstance
 from poolsched.models.targets.git import IGitRaw, IGitEnrich, GitRepo
-from poolsched.models import User
+
+
+User = get_user_model()
 
 logger = logging.getLogger(__name__)
 

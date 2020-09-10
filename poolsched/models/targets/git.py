@@ -1,6 +1,7 @@
 import logging
 
 from django.db import models, IntegrityError, transaction
+from django.conf import settings
 from django.utils.timezone import now
 
 from poolsched import utils
@@ -273,7 +274,7 @@ class IGitEnrich(Intention):
 
 class IGitRawArchived(models.Model):
     repo = models.ForeignKey(GitRepo, on_delete=models.PROTECT)
-    user = models.ForeignKey('User', on_delete=models.PROTECT,
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
                              default=None, null=True, blank=True)
     created = models.DateTimeField()
     completed = models.DateTimeField(auto_now_add=True)
@@ -281,7 +282,7 @@ class IGitRawArchived(models.Model):
 
 class IGitEnrichArchived(models.Model):
     repo = models.ForeignKey(GitRepo, on_delete=models.PROTECT)
-    user = models.ForeignKey('User', on_delete=models.PROTECT,
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
                              default=None, null=True, blank=True)
     created = models.DateTimeField()
     completed = models.DateTimeField(auto_now_add=True)

@@ -1,11 +1,11 @@
 from logging import getLogger
 
 from django.db import models, IntegrityError, transaction
+from django.conf import settings
 from django.utils.timezone import now
 
 from ..intentions import Intention
 from ..jobs import Job
-from ..users import User
 
 logger = getLogger(__name__)
 
@@ -56,7 +56,7 @@ class GLToken(models.Model):
     reset = models.DateTimeField(default=now)
     # Owner of the token
     user = models.ForeignKey(
-        User, on_delete=models.SET_NULL,
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         default=None, null=True, blank=True,
         related_name='gltokens',
         related_query_name='gltoken')
@@ -340,7 +340,7 @@ class IGLEnrich(Intention):
 class IGLRawArchived(models.Model):
     """Archived GitLab Raw intention"""
     repo = models.ForeignKey(GLRepo, on_delete=models.PROTECT)
-    user = models.ForeignKey('User', on_delete=models.PROTECT,
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
                              default=None, null=True, blank=True)
     created = models.DateTimeField()
     completed = models.DateTimeField(auto_now_add=True)
@@ -349,7 +349,7 @@ class IGLRawArchived(models.Model):
 class IGLEnrichArchived(models.Model):
     """Archived GitLab Enrich intention"""
     repo = models.ForeignKey(GLRepo, on_delete=models.PROTECT)
-    user = models.ForeignKey('User', on_delete=models.PROTECT,
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
                              default=None, null=True, blank=True)
     created = models.DateTimeField()
     completed = models.DateTimeField(auto_now_add=True)

@@ -4,10 +4,17 @@ import math
 import traceback
 import sqlalchemy
 
-from sirmordred.config import Config
-from sirmordred.task_projects import TaskProjects
-from sirmordred.task_collection import TaskRawDataCollection
-from sirmordred.task_enrich import TaskEnrich
+try:
+    from sirmordred.config import Config
+    from sirmordred.task_projects import TaskProjects
+    from sirmordred.task_collection import TaskRawDataCollection
+    from sirmordred.task_enrich import TaskEnrich
+except ImportError:
+    from . import sirmordred_fake
+    Config = sirmordred_fake.Config
+    TaskProjects = sirmordred_fake.TaskProjects
+    TaskRawDataCollection = sirmordred_fake.TaskRawDataCollection
+    TaskEnrich = sirmordred_fake.TaskEnrich
 
 from .base import Backend
 
@@ -54,7 +61,7 @@ class GitLabRaw(Backend):
                     logger.error(repo['error'])
                     if repo['error'].startswith('RateLimitError'):
                         seconds_to_reset = float(repo['error'].split(' ')[-1])
-                        restart_minutes = math.ceil(seconds_to_reset/60) + 2
+                        restart_minutes = math.ceil(seconds_to_reset / 60) + 2
                         logger.warning("RateLimitError. This task will be restarted in: "
                                        "{} minutes".format(restart_minutes))
                         return restart_minutes

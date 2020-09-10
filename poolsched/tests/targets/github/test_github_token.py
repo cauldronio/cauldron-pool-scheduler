@@ -2,10 +2,12 @@ import datetime
 
 from django.utils import timezone
 from django.test import TestCase
+from django.contrib.auth import get_user_model
 
 from ....models import Job
 from ....models.targets.github import GHToken
-from ....models.users import User
+
+User = get_user_model()
 
 
 class TestBasic(TestCase):

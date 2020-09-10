@@ -1,11 +1,11 @@
 from logging import getLogger
 
 from django.db import models, IntegrityError, transaction
+from django.conf import settings
 from django.utils.timezone import now
 
 from ..intentions import Intention
 from ..jobs import Job
-from ..users import User
 
 logger = getLogger(__name__)
 
@@ -56,7 +56,7 @@ class GHToken(models.Model):
     reset = models.DateTimeField(default=now)
     # Owner of the token
     user = models.ForeignKey(
-        User, on_delete=models.SET_NULL,
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         default=None, null=True, blank=True,
         related_name='ghtokens',
         related_query_name='ghtoken')
@@ -264,7 +264,6 @@ class IGHEnrich(Intention):
     def __str__(self):
         return f'Repo({self.repo})|User({self.user})|Prev({self.previous})|Job({self.job})'
 
-
     @classmethod
     @transaction.atomic
     def next_job(cls, worker):
@@ -349,7 +348,7 @@ class IGHEnrich(Intention):
 class IGHRawArchived(models.Model):
     """Archived GitHub Raw intention"""
     repo = models.ForeignKey(GHRepo, on_delete=models.PROTECT)
-    user = models.ForeignKey('User', on_delete=models.PROTECT,
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
                              default=None, null=True, blank=True)
     created = models.DateTimeField()
     completed = models.DateTimeField(auto_now_add=True)
@@ -358,7 +357,7 @@ class IGHRawArchived(models.Model):
 class IGHEnrichArchived(models.Model):
     """Archived GitHub Enrich intention"""
     repo = models.ForeignKey(GHRepo, on_delete=models.PROTECT)
-    user = models.ForeignKey('User', on_delete=models.PROTECT,
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
                              default=None, null=True, blank=True)
     created = models.DateTimeField()
     completed = models.DateTimeField(auto_now_add=True)

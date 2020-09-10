@@ -2,11 +2,13 @@ import logging
 import datetime
 
 from django.test import TestCase
+from django.contrib.auth import get_user_model
 from django.utils.timezone import now
 
-from ....models import Intention
-from ....models import Job, User, Worker
+from ....models import Job, Worker
 from ....models.targets.github import GHInstance, GHRepo, IGHRaw, GHToken
+
+User = get_user_model()
 
 GITHUB_INSTANCE = GHInstance.objects.get(name='GitHub')
 

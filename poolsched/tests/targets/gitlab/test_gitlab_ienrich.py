@@ -1,10 +1,12 @@
 import logging
 
 from django.test import TestCase
+from django.contrib.auth import get_user_model
 
-from ....models import Intention
-from ....models import Job, User, Worker
+from ....models import Job, Worker
 from ....models.targets.gitlab import GLInstance, GLRepo, IGLEnrich
+
+User = get_user_model()
 
 GITLAB_INSTANCE = GLInstance.objects.get(name='GitLab')
 
