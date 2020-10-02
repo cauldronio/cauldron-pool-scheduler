@@ -80,3 +80,21 @@ class Intention(models.Model):
         # Exception raised, or all subfield attributes are None
         logger.debug(f"Casting as intention (error?): {self}, {self.__class__}")
         return self
+
+
+class ArchivedIntention(models.Model):
+    """Abstract archived intention: Intention completed and not necessary anymore"""
+    OK = 'OK'
+    ERROR = 'ER'
+    STATUS_CHOICES = [
+        (OK, 'Success'),
+        (ERROR, 'Error'),
+    ]
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                             default=None, null=True, blank=True)
+    created = models.DateTimeField()
+    completed = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=2, choices=STATUS_CHOICES, default=OK)
+
+    class Meta:
+        abstract = True

@@ -4,7 +4,7 @@ from django.db import models, IntegrityError, transaction
 from django.conf import settings
 from django.utils.timezone import now
 
-from ..intentions import Intention
+from ..intentions import Intention, ArchivedIntention
 from ..jobs import Job
 
 logger = getLogger(__name__)
@@ -40,6 +40,10 @@ class GLRepo(models.Model):
         db_table = TABLE_PREFIX + 'repo'
         # The combination (onwer, repo, instance) should be unique
         unique_together = ('owner', 'repo', 'instance')
+
+    def has_intentions(self):
+        """Simple way to know if a repository is being analyzed"""
+        return (self.iglraw_set is not None) or (self.iglenrich_set is not None)
 
 
 class GLToken(models.Model):
@@ -337,19 +341,11 @@ class IGLEnrich(Intention):
         self.delete()
 
 
-class IGLRawArchived(models.Model):
+class IGLRawArchived(ArchivedIntention):
     """Archived GitLab Raw intention"""
     repo = models.ForeignKey(GLRepo, on_delete=models.PROTECT)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
-                             default=None, null=True, blank=True)
-    created = models.DateTimeField()
-    completed = models.DateTimeField(auto_now_add=True)
 
 
-class IGLEnrichArchived(models.Model):
+class IGLEnrichArchived(ArchivedIntention):
     """Archived GitLab Enrich intention"""
     repo = models.ForeignKey(GLRepo, on_delete=models.PROTECT)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
-                             default=None, null=True, blank=True)
-    created = models.DateTimeField()
-    completed = models.DateTimeField(auto_now_add=True)

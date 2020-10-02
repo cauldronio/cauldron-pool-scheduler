@@ -4,7 +4,7 @@ from django.db import models, IntegrityError, transaction
 from django.conf import settings
 from django.utils.timezone import now
 
-from ..intentions import Intention
+from ..intentions import Intention, ArchivedIntention
 from ..jobs import Job
 
 logger = getLogger(__name__)
@@ -65,6 +65,7 @@ class GHToken(models.Model):
         Job,
         related_name='ghtokens',
         related_query_name='ghtoken')
+    # TODO: Include instance
 
     class Meta:
         db_table = TABLE_PREFIX + 'token'
@@ -345,19 +346,11 @@ class IGHEnrich(Intention):
         self.delete()
 
 
-class IGHRawArchived(models.Model):
+class IGHRawArchived(ArchivedIntention):
     """Archived GitHub Raw intention"""
     repo = models.ForeignKey(GHRepo, on_delete=models.PROTECT)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
-                             default=None, null=True, blank=True)
-    created = models.DateTimeField()
-    completed = models.DateTimeField(auto_now_add=True)
 
 
-class IGHEnrichArchived(models.Model):
+class IGHEnrichArchived(ArchivedIntention):
     """Archived GitHub Enrich intention"""
     repo = models.ForeignKey(GHRepo, on_delete=models.PROTECT)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
-                             default=None, null=True, blank=True)
-    created = models.DateTimeField()
-    completed = models.DateTimeField(auto_now_add=True)

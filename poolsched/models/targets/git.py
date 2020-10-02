@@ -5,7 +5,7 @@ from django.conf import settings
 from django.utils.timezone import now
 
 from poolsched import utils
-from ..intentions import Intention
+from ..intentions import Intention, ArchivedIntention
 from ..jobs import Job
 
 try:
@@ -272,17 +272,9 @@ class IGitEnrich(Intention):
         self.delete()
 
 
-class IGitRawArchived(models.Model):
+class IGitRawArchived(ArchivedIntention):
     repo = models.ForeignKey(GitRepo, on_delete=models.PROTECT)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
-                             default=None, null=True, blank=True)
-    created = models.DateTimeField()
-    completed = models.DateTimeField(auto_now_add=True)
 
 
-class IGitEnrichArchived(models.Model):
+class IGitEnrichArchived(ArchivedIntention):
     repo = models.ForeignKey(GitRepo, on_delete=models.PROTECT)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
-                             default=None, null=True, blank=True)
-    created = models.DateTimeField()
-    completed = models.DateTimeField(auto_now_add=True)

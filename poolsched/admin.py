@@ -17,6 +17,7 @@ admin.site.register(git.IGitEnrichArchived)
 
 # GitHub
 admin.site.register(github.GHRepo)
+admin.site.register(github.GHToken)
 admin.site.register(github.IGHRaw)
 admin.site.register(github.IGHEnrich)
 admin.site.register(github.IGHRawArchived)
@@ -24,6 +25,7 @@ admin.site.register(github.IGHEnrichArchived)
 
 # GitLab
 admin.site.register(gitlab.GLRepo)
+admin.site.register(gitlab.GLToken)
 admin.site.register(gitlab.IGLRaw)
 admin.site.register(gitlab.IGLEnrich)
 admin.site.register(gitlab.IGLRawArchived)
