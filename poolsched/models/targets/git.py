@@ -130,24 +130,28 @@ class IGitRaw(Intention):
         return job
 
     def run(self, job):
-        """Run the code to fulfill this intention
+        """Run the code to fulfill this intention.
+        Returns true if completed
 
         :param job: job to be run
         """
         logger.info(f"Running GitRaw intention: {self.repo.url}")
-        fh = utils.file_formatter(f"job-{job.id}.log")
+        fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
         global_logger.addHandler(fh)
         runner = GitRaw(self.repo.url)
         output = runner.run()
         global_logger.removeHandler(fh)
         if output:
+            logger.error(output)
             raise Job.StopException
+        return True
 
-    def archive(self):
+    def archive(self, status=ArchivedIntention.OK):
         """Archive and remove the current intention"""
         IGitRawArchived.objects.create(user=self.user,
                                        repo=self.repo,
-                                       created=self.created)
+                                       created=self.created,
+                                       status=status)
         self.delete()
 
 
@@ -252,23 +256,25 @@ class IGitEnrich(Intention):
 
     def run(self, job):
         """Run the code to fulfill this intention
-
+        Returns true if completed
         :return:
         """
         logger.info(f"Running GitEnrich intention: {self.repo.url}")
-        fh = utils.file_formatter(f"job-{job.id}.log")
+        fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
         global_logger.addHandler(fh)
         runner = GitEnrich(self.repo.url)
         output = runner.run()
         global_logger.removeHandler(fh)
         if output:
             raise Job.StopException
+        return True
 
-    def archive(self):
+    def archive(self, status=ArchivedIntention.OK):
         """Archive and remove the current intention"""
         IGitEnrichArchived.objects.create(user=self.user,
                                           repo=self.repo,
-                                          created=self.created)
+                                          created=self.created,
+                                          status=status)
         self.delete()
 
 

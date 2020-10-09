@@ -127,7 +127,7 @@ class Migration(migrations.Migration):
                 ('created', models.DateTimeField(auto_now_add=True)),
                 ('job', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.SET_NULL, to='poolsched.job')),
                 ('previous', models.ManyToManyField(blank=True, default=None, to='poolsched.Intention')),
-                ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL)),
+                ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'abstract': False,
@@ -141,7 +141,7 @@ class Migration(migrations.Migration):
                 ('completed', models.DateTimeField(auto_now_add=True)),
                 ('status', models.CharField(choices=[('OK', 'Success'), ('ER', 'Error')], default='OK', max_length=2)),
                 ('repo', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='poolsched.glrepo')),
-                ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL)),
+                ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'abstract': False,
@@ -155,7 +155,7 @@ class Migration(migrations.Migration):
                 ('completed', models.DateTimeField(auto_now_add=True)),
                 ('status', models.CharField(choices=[('OK', 'Success'), ('ER', 'Error')], default='OK', max_length=2)),
                 ('repo', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='poolsched.glrepo')),
-                ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL)),
+                ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'abstract': False,
@@ -169,7 +169,7 @@ class Migration(migrations.Migration):
                 ('completed', models.DateTimeField(auto_now_add=True)),
                 ('status', models.CharField(choices=[('OK', 'Success'), ('ER', 'Error')], default='OK', max_length=2)),
                 ('repo', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='poolsched.gitrepo')),
-                ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL)),
+                ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'abstract': False,
@@ -183,7 +183,7 @@ class Migration(migrations.Migration):
                 ('completed', models.DateTimeField(auto_now_add=True)),
                 ('status', models.CharField(choices=[('OK', 'Success'), ('ER', 'Error')], default='OK', max_length=2)),
                 ('repo', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='poolsched.gitrepo')),
-                ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL)),
+                ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'abstract': False,
@@ -197,7 +197,7 @@ class Migration(migrations.Migration):
                 ('completed', models.DateTimeField(auto_now_add=True)),
                 ('status', models.CharField(choices=[('OK', 'Success'), ('ER', 'Error')], default='OK', max_length=2)),
                 ('repo', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='poolsched.ghrepo')),
-                ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL)),
+                ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'abstract': False,
@@ -211,7 +211,7 @@ class Migration(migrations.Migration):
                 ('completed', models.DateTimeField(auto_now_add=True)),
                 ('status', models.CharField(choices=[('OK', 'Success'), ('ER', 'Error')], default='OK', max_length=2)),
                 ('repo', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='poolsched.ghrepo')),
-                ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL)),
+                ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'abstract': False,
@@ -221,7 +221,7 @@ class Migration(migrations.Migration):
             name='GLToken',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('token', models.CharField(max_length=40)),
+                ('token', models.CharField(max_length=100)),
                 ('reset', models.DateTimeField(default=django.utils.timezone.now)),
                 ('jobs', models.ManyToManyField(related_name='gltokens', related_query_name='gltoken', to='poolsched.Job')),
                 ('user', models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='gltokens', related_query_name='gltoken', to=settings.AUTH_USER_MODEL)),

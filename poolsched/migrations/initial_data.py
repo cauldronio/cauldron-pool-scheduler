@@ -7,13 +7,13 @@ def github_data(apps, schema_editor):
     """Add data for GitHub"""
     GHInstance.objects.update_or_create(
         name='GitHub',
-        endpoint="https://api.github.com")
+        endpoint="https://github.com")
 
 
 def gitlab_data(apps, schema_editor):
     GLInstance.objects.update_or_create(
         name='GitLab',
-        endpoint="https://api.gitlab.com")
+        endpoint="https://gitlab.com")
 
 
 class Migration(migrations.Migration):

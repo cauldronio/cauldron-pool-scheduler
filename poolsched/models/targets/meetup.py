@@ -54,3 +54,8 @@ class MeetupToken(models.Model):
 
     class Meta:
         db_table = TABLE_PREFIX + 'token'
+
+    @property
+    def is_ready(self):
+        return now() > self.reset
+

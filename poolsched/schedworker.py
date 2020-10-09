@@ -10,7 +10,7 @@ from random import sample
 from django.forms.models import model_to_dict
 from django.contrib.auth import get_user_model
 
-from .models import Worker, Intention, Job, ArchJob
+from .models import Worker, Intention, Job, ArchJob, ArchivedIntention
 from .models.targets.github import IGHRaw, IGHEnrich
 from .models.targets.gitlab import IGLRaw, IGLEnrich
 from .models.targets.git import IGitRaw, IGitEnrich
@@ -26,7 +26,7 @@ The precedence of a job is governed by the following rules:
 - Job that needs little time to run
 - Job that doesn't use a token
 """
-INTENTION_ORDER = [IGitEnrich, IGHEnrich, IGLEnrich, IGitRaw, IGHRaw, IGLRaw]
+INTENTION_ORDER = [IGHEnrich, IGLEnrich, IGitEnrich, IGHRaw, IGLRaw, IGitRaw]
 
 
 class SchedWorker:
@@ -147,18 +147,22 @@ class SchedWorker:
             logger.debug(f"Job to run: {job}")
             intention = job.intention_set.first()
             logger.debug(f"Intention to run (casted): {intention} ({intention.cast()})")
-            intention.cast().run(job)
-            self.archive_intentions(job.intention_set.all())
-            self.archive_job(job)
+            completed = intention.cast().run(job)
+            if completed:
+                self.archive_intentions(job.intention_set.all(), ArchivedIntention.OK)
+                self.archive_job(job)
+            else:
+                job.worker = None
+                job.save()
         except Job.StopException as e:
             logger.debug(f"Intention stopped before completing: {job}")
-            job.worker = None
-            job.save()
+            self.archive_intentions(job.intention_set.all(), ArchivedIntention.ERROR)
+            self.archive_job(job)
         except Exception as e:
             logger.error(f"Other exception (error?): {job}, {e}")
             traceback.print_exc()
-            job.worker = None
-            job.save()
+            self.archive_intentions(job.intention_set.all(), ArchivedIntention.ERROR)
+            self.archive_job(job)
         return job
 
     def archive_job(self, job):
@@ -169,11 +173,11 @@ class SchedWorker:
         arch_job.save()
         job.delete()
 
-    def archive_intentions(self, intentions):
+    def archive_intentions(self, intentions, status):
         """Archive the intentions, they are already done"""
         for intention in intentions:
             logger.info("Archiving intention: " + str(model_to_dict(intention)))
-            intention.cast().archive()
+            intention.cast().archive(status)
 
     def __init__(self, run=False, finish=False):
         """Start the party

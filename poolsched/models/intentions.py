@@ -20,7 +20,7 @@ class Intention(models.Model):
     job = models.ForeignKey(jobs.Job, on_delete=models.SET_NULL,
                             default=None, null=True, blank=True)
     # An intention is on behalf of some user
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
                              default=None, null=True, blank=True)
     # Directly previous intentions (need to be done before this can be done)
     previous = models.ManyToManyField(
@@ -90,7 +90,7 @@ class ArchivedIntention(models.Model):
         (OK, 'Success'),
         (ERROR, 'Error'),
     ]
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
                              default=None, null=True, blank=True)
     created = models.DateTimeField()
     completed = models.DateTimeField(auto_now_add=True)

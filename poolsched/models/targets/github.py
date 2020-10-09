@@ -1,13 +1,23 @@
-from logging import getLogger
+import logging
+import datetime
 
 from django.db import models, IntegrityError, transaction
 from django.conf import settings
 from django.utils.timezone import now
 
+from poolsched import utils
 from ..intentions import Intention, ArchivedIntention
 from ..jobs import Job
 
-logger = getLogger(__name__)
+try:
+    from mordred.backends.github import GitHubRaw, GitHubEnrich
+except ImportError as exc:
+    logging.error(f'[EXPECTED] {exc}')
+    GitHubEnrich = utils.mordred_not_imported
+    GitHubRaw = utils.mordred_not_imported
+
+logger = logging.getLogger(__name__)
+global_logger = logging.getLogger()
 
 TABLE_PREFIX = 'poolsched_gh'
 
@@ -41,6 +51,10 @@ class GHRepo(models.Model):
         # The combination (onwer, repo, instance) should be unique
         unique_together = ('owner', 'repo', 'instance')
 
+    @property
+    def url(self):
+        return f'{self.instance.endpoint}/{self.owner}/{self.repo}'
+
 
 class GHToken(models.Model):
     """GitHub token"""
@@ -69,6 +83,10 @@ class GHToken(models.Model):
 
     class Meta:
         db_table = TABLE_PREFIX + 'token'
+
+    @property
+    def is_ready(self):
+        return now() > self.reset
 
 
 class IRawManager(models.Manager):
@@ -217,17 +235,37 @@ class IGHRaw(Intention):
 
         :param job: job to be run
         """
-
-        repo = self.repo
         token = job.ghtokens.filter(reset__lt=now()).first()
-        logger.info(f"Running GitHubRaw intention: {repo.owner}/{repo.repo}, token: {token}")
-        # raise TokenExhaustedException(token=token) if token exhausted
+        logger.info(f"Running GitHubRaw intention: {self.repo.owner}/{self.repo.repo}, token: {token}")
+        if not token:
+            logger.error(f'Token not found for intention {self}')
+            raise Job.StopException
+        fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
+        try:
+            global_logger.addHandler(fh)
+            runner = GitHubRaw(url=self.repo.url, token=token.token)
+            output = runner.run()
+        except Exception as e:
+            logger.error(f"Error running GitHubRaw intention {str(e)}")
+            output = 1
+        finally:
+            global_logger.removeHandler(fh)
 
-    def archive(self):
+        if output == 1:
+            logger.error(f"Error running GitHubRaw intention {self}")
+            raise Job.StopException
+        if output:
+            token.reset = now() + datetime.timedelta(minutes=output)
+            token.save()
+            return False
+        return True
+
+    def archive(self, status=ArchivedIntention.OK):
         """Archive and remove the current intention"""
         IGHRawArchived.objects.create(user=self.user,
                                       repo=self.repo,
-                                      created=self.created)
+                                      created=self.created,
+                                      status=status)
         self.delete()
 
 
@@ -332,17 +370,27 @@ class IGHEnrich(Intention):
 
     def run(self, job):
         """Run the code to fulfill this intention
+        Returns true if completed
 
-        :return:
+         :param job: job to be run
         """
-
         logger.info(f"Running GitHubEnrich intention: {self.repo.owner}/{self.repo.repo}")
+        fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
+        global_logger.addHandler(fh)
+        runner = GitHubEnrich(url=self.repo.url)
+        output = runner.run()
+        global_logger.removeHandler(fh)
+        if output:
+            logger.error(output)
+            raise Job.StopException
+        return True
 
-    def archive(self):
+    def archive(self, status=ArchivedIntention.OK):
         """Archive and remove the current intention"""
         IGHEnrichArchived.objects.create(user=self.user,
                                          repo=self.repo,
-                                         created=self.created)
+                                         created=self.created,
+                                         status=status)
         self.delete()
 
 

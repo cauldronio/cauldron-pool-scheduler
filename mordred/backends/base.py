@@ -3,34 +3,24 @@ import configparser
 
 from django.conf import settings
 
+from sirmordred.config import Config
+
 logger = logging.getLogger("mordred-worker")
+
+MORDRED_FILE = 'mordred/setup.cfg'
+ELASTIC_URL = 'https://admin:{}@{}:{}'.format(settings.ES_ADMIN_PASSWORD,
+                                              settings.ES_IN_HOST,
+                                              settings.ES_IN_PORT)
 
 
 class Backend:
-    mordred_file = 'mordred/setup.cfg'
-
-    def create_config(self):
-        """Create the configuration files"""
-        raise NotImplementedError
+    def __init__(self):
+        self.config = Config(MORDRED_FILE)
+        self.config.set_param('es_collection', 'url', ELASTIC_URL)
+        self.config.set_param('es_enrichment', 'url', ELASTIC_URL)
 
     def start_analysis(self):
         """Call to Grimoirelab"""
-        raise NotImplementedError
-
-    def basic_setup(self):
-        url = 'https://admin:{}@{}:{}'.format(settings.ES_ADMIN_PASSWORD,
-                                              settings.ES_IN_HOST,
-                                              settings.ES_IN_PORT)
-        config = configparser.ConfigParser()
-        with open(self.mordred_file, 'r') as f:
-            config.read_file(f)
-        config['es_collection']['url'] = url
-        config['es_enrichment']['url'] = url
-        config['git']['git-path'] = settings.GIT_REPOS
-        with open(self.mordred_file, 'w+') as f:
-            config.write(f)
 
     def run(self):
-        self.basic_setup()
-        self.create_config()
-        return self.start_analysis()
+        raise NotImplementedError

@@ -19,6 +19,14 @@ RUN chmod +x /entrypoint.sh
 # Install requirements
 RUN pip install -q -r requirements.txt
 
+RUN mkdir -p /job_logs
+RUN mkdir -p /git_repositories
+RUN chown grimoirelab /job_logs
+RUN chown grimoirelab /git_repositories
+
+VOLUME ["/job_logs"]
+VOLUME ["/git_repositories"]
+
 USER grimoirelab
 
 ENTRYPOINT ["/entrypoint.sh"]

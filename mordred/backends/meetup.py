@@ -25,25 +25,16 @@ BACKEND_SECTION = 'meetup'
 
 
 class MeetupRaw(Backend):
-    def __init__(self, **kwargs):
-        self.config = None
-        self.url = kwargs['url']
-        self.token = kwargs['token']
-
-    def create_config(self):
-        """Create the configuration files"""
-        logger.info("Creating configuration for Grimoirelab")
+    def __init__(self, url, token):
+        super().__init__()
         projects = {'Project': {}}
-        projects['Project'][BACKEND_SECTION] = [self.url]
-
+        projects['Project'][BACKEND_SECTION] = [url]
         with open(PROJECTS_FILE, 'w+') as f:
             json.dump(projects, f)
-
-        self.config = Config(self.mordred_file)
-        self.config.set_param(BACKEND_SECTION, 'api-token', self.token)
+        self.config.set_param(BACKEND_SECTION, 'api-token', token)
         self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
 
-    def start_analysis(self):
+    def run(self):
         """ Execute the analysis for this backend.
         Return 0 or None for success, 1 for error, other for time to reset in minutes
         """
@@ -69,22 +60,15 @@ class MeetupRaw(Backend):
 
 
 class MeetupEnrich(Backend):
-    def __init__(self, **kwargs):
-        self.config = None
-        self.url = kwargs['url']
-
-    def create_config(self):
-        """Create the configuration files"""
-        logger.info("Creating configuration for Grimoirelab")
+    def __init__(self, url):
+        super().__init__()
         projects = {'Project': {}}
-        projects['Project'][BACKEND_SECTION] = [self.url]
+        projects['Project'][BACKEND_SECTION] = [url]
         with open(PROJECTS_FILE, 'w+') as f:
             json.dump(projects, f)
-
-        self.config = Config(self.mordred_file)
         self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
 
-    def start_analysis(self):
+    def run(self):
         """ Execute the analysis for this backend.
         Return 0 or None for success, 1 for error
         """

@@ -1,13 +1,24 @@
-from logging import getLogger
+import datetime
+import logging
 
 from django.db import models, IntegrityError, transaction
 from django.conf import settings
 from django.utils.timezone import now
 
+from poolsched import utils
 from ..intentions import Intention, ArchivedIntention
 from ..jobs import Job
 
-logger = getLogger(__name__)
+try:
+    from mordred.backends.gitlab import GitLabRaw, GitLabEnrich
+except ImportError as exc:
+    logging.error(f'[EXPECTED] {exc}')
+    GitLabEnrich = utils.mordred_not_imported
+    GitLabRaw = utils.mordred_not_imported
+
+
+logger = logging.getLogger(__name__)
+global_logger = logging.getLogger()
 
 TABLE_PREFIX = 'poolsched_gl'
 
@@ -45,6 +56,10 @@ class GLRepo(models.Model):
         """Simple way to know if a repository is being analyzed"""
         return (self.iglraw_set is not None) or (self.iglenrich_set is not None)
 
+    @property
+    def url(self):
+        return f'{self.instance.endpoint}/{self.owner}/{self.repo}'
+
 
 class GLToken(models.Model):
     """GitLab token"""
@@ -53,7 +68,7 @@ class GLToken(models.Model):
     MAX_JOBS_TOKEN = 3
 
     # GLToken string
-    token = models.CharField(max_length=40)
+    token = models.CharField(max_length=100)
     # Rate limit remaining, last time it was checked
     # rate = models.IntegerField(default=0)
     # Rate limit reset, last time it was checked
@@ -72,6 +87,10 @@ class GLToken(models.Model):
 
     class Meta:
         db_table = TABLE_PREFIX + 'token'
+
+    @property
+    def is_ready(self):
+        return now() > self.reset
 
 
 class IRawManager(models.Manager):
@@ -213,17 +232,37 @@ class IGLRaw(Intention):
 
         :param job: job to be run
         """
-
-        repo = self.repo
         token = job.gltokens.filter(reset__lt=now()).first()
-        logger.info(f"Running GitLabRaw intention: {repo.owner}/{repo.repo}, token: {token}")
-        # raise TokenExhaustedException(token=token) if token exhausted
+        logger.info(f"Running GitLabRaw intention: {self.repo.owner}/{self.repo.repo}, token: {token}")
+        if not token:
+            logger.error(f'Token not found for intention {self}')
+            raise Job.StopException
+        fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
+        try:
+            global_logger.addHandler(fh)
+            runner = GitLabRaw(url=self.repo.url, token=token.token)
+            output = runner.run()
+        except Exception as e:
+            logger.error(f"Error running GitLabRaw intention {str(e)}")
+            output = 1
+        finally:
+            global_logger.removeHandler(fh)
 
-    def archive(self):
+        if output == 1:
+            logger.error(f"Error running GitLabRaw intention {self}")
+            raise Job.StopException
+        if output:
+            token.reset = now() + datetime.timedelta(minutes=output)
+            token.save()
+            return False
+        return True
+
+    def archive(self, status=ArchivedIntention.OK):
         """Archive and remove the current intention"""
         IGLRawArchived.objects.create(user=self.user,
                                       repo=self.repo,
-                                      created=self.created)
+                                      created=self.created,
+                                      status=status)
         self.delete()
 
 
@@ -330,14 +369,23 @@ class IGLEnrich(Intention):
 
         :return:
         """
-
         logger.info(f"Running GitLabEnrich intention: {self.repo.owner}/{self.repo.repo}")
+        fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
+        global_logger.addHandler(fh)
+        runner = GitLabEnrich(url=self.repo.url)
+        output = runner.run()
+        global_logger.removeHandler(fh)
+        if output:
+            logger.error(output)
+            raise Job.StopException
+        return True
 
-    def archive(self):
+    def archive(self, status=ArchivedIntention.OK):
         """Archive and remove the current intention"""
         IGLEnrichArchived.objects.create(user=self.user,
                                          repo=self.repo,
-                                         created=self.created)
+                                         created=self.created,
+                                         status=status)
         self.delete()
 
 

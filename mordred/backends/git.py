@@ -1,7 +1,10 @@
 import logging
 import json
+import os
 import traceback
 import sqlalchemy
+
+from django.conf import settings
 
 try:
     from sirmordred.config import Config
@@ -26,19 +29,15 @@ BACKEND_SECTION = 'git'
 
 class GitRaw(Backend):
     def __init__(self, url):
-        self.config = None
-        self.url = url
-
-    def create_config(self):
-        """Create the configuration files"""
-        logger.info("Creating configuration for Grimoirelab")
-        self.config = Config(self.mordred_file)
+        super().__init__()
+        git_path = os.path.join(settings.GIT_REPOS, url.lstrip('/'))
+        self.config.set_param('git', 'git-path', git_path)
         self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
-        projects = {'Project': {BACKEND_SECTION: [self.url]}}
+        projects = {'Project': {BACKEND_SECTION: [url]}}
         with open(PROJECTS_FILE, 'w+') as f:
             json.dump(projects, f)
 
-    def start_analysis(self):
+    def run(self):
         """ Execute the analysis for this backend.
         Return 0 or None for success, 1 for error
         """
@@ -58,19 +57,15 @@ class GitRaw(Backend):
 
 class GitEnrich(Backend):
     def __init__(self, url):
-        self.config = None
-        self.url = url
-
-    def create_config(self):
-        """Create the configuration files"""
-        logger.info("Creating configuration for Grimoirelab")
-        self.config = Config(self.mordred_file)
+        super().__init__()
+        git_path = os.path.join(settings.GIT_REPOS, url.lstrip('/'))
+        self.config.set_param('git', 'git-path', git_path)
         self.config.set_param('projects', 'projects_file', PROJECTS_FILE)
-        projects = {'Project': {'git': [self.url]}}
+        projects = {'Project': {'git': [url]}}
         with open(PROJECTS_FILE, 'w+') as f:
             json.dump(projects, f)
 
-    def start_analysis(self):
+    def run(self):
         """ Execute the analysis for this backend.
         Return 0 or None for success, 1 for error
         """
