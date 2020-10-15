@@ -118,7 +118,8 @@ class TestCast(TestCase):
     def setUpTestData(cls):
         cls.subfields = ['ighraw', 'ighenrich',
                          'igitraw', 'igitenrich',
-                         'iglraw', 'iglenrich']
+                         'iglraw', 'iglenrich',
+                         'imeetupraw', 'imeetupenrich']
 
     def test_subfields(self):
         """Test _subfields()"""

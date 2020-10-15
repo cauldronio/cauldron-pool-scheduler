@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import git, github, gitlab
+from .models import git, github, gitlab, meetup
 from .models import Worker, Job, Intention, ArchJob
 
 
@@ -30,3 +30,11 @@ admin.site.register(gitlab.IGLRaw)
 admin.site.register(gitlab.IGLEnrich)
 admin.site.register(gitlab.IGLRawArchived)
 admin.site.register(gitlab.IGLEnrichArchived)
+
+# Meetup
+admin.site.register(meetup.MeetupRepo)
+admin.site.register(meetup.MeetupToken)
+admin.site.register(meetup.IMeetupRaw)
+admin.site.register(meetup.IMeetupEnrich)
+admin.site.register(meetup.IMeetupRawArchived)
+admin.site.register(meetup.IMeetupEnrichArchived)

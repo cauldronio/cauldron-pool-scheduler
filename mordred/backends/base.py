@@ -1,9 +1,12 @@
 import logging
-import configparser
 
 from django.conf import settings
 
-from sirmordred.config import Config
+try:
+    from sirmordred.config import Config
+except ImportError:
+    from . import sirmordred_fake
+    Config = sirmordred_fake.Config
 
 logger = logging.getLogger("mordred-worker")
 

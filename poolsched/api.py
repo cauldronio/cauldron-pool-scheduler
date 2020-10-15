@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from poolsched.models.targets.github import IGHRaw, IGHEnrich, GHToken, GHRepo, GHInstance
 from poolsched.models.targets.gitlab import IGLRaw, IGLEnrich, GLToken, GLRepo, GLInstance
 from poolsched.models.targets.git import IGitRaw, IGitEnrich, GitRepo
+from poolsched.models.targets.meetup import IMeetupRaw, IMeetupEnrich
 
 
 User = get_user_model()
@@ -78,8 +79,12 @@ def analyze_gl_repo_obj(user, gl_repo):
 
 
 def analyze_meetup_repo_obj(user, meetup_repo):
-    # TODO: Implement meetup backend
-    return None
+    if user.meetuptokens.count() < 1:
+        return None
+    raw, _ = IMeetupRaw.objects.get_or_create(user=user, repo=meetup_repo)
+    enrich, _ = IMeetupEnrich.objects.get_or_create(user=user, repo=meetup_repo)
+    enrich.previous.add(raw)
+    return {'ok': 'tasks created'}
 
 
 def create_user(name):

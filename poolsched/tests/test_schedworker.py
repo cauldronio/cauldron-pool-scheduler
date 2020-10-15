@@ -18,7 +18,7 @@ call_no = 0
 
 
 def mock_run(intention, job):
-    """ Raise TokenExhaustedException 5 times and then return None"""
+    """ Stop the task 5 times and then return None"""
     repo = intention.repo
     token = job.ghtokens.filter(reset__lt=now()).first()
     logger.debug(f"Mock running GitHubRaw intention: {repo.owner}/{repo.repo}, token: {token}")
@@ -26,14 +26,15 @@ def mock_run(intention, job):
     if call_no < 5:
         call_no += 1
         logger.debug(f"Exception: {call_no}.")
-        raise IGHRaw.TokenExhaustedException(token=token)
+        return False
     logger.debug(f"No exception: {call_no}")
+    return True
 
 
 def mock_skip_run(intention, job):
     """Skip the execution of the run method and return always None"""
     logger.debug(f"Skip run method for intention {intention.id}, job {job}")
-    return None
+    return True
 
 
 class TestRandomUserReady(TestCase):
@@ -159,6 +160,7 @@ class TestPoolSched(TestCase):
     @patch.object(IGHRaw, 'run', side_effect=mock_skip_run, autospec=True)
     def test_init(self, mock_skip_run):
         # logging.basicConfig(level=logging.DEBUG)
+        # logging.getLogger().setLevel(logging.DEBUG)
         worker = SchedWorker(run=True, finish=True)
         archived_IGHRaw = IGHRawArchived.objects.count()
         archived_jobs = ArchJob.objects.count()
@@ -245,8 +247,10 @@ class TestPoolSched(TestCase):
                                                     max=max)
                 self.assertEqual(len(intentions), min(expected, max))
 
+    # When an intention finishes with errors it is archived as error
     @patch.object(IGHRaw, 'run', side_effect=mock_run, autospec=True)
     def test_init2(self, mock_fun):
+        """When an intetion fails, it is archived as error"""
         #        logging.basicConfig(level=logging.DEBUG)
         worker = SchedWorker(run=True, finish=True)
         # Run should run 5 times being interrupted, and 3 more (all intentions done)

@@ -14,6 +14,7 @@ from .models import Worker, Intention, Job, ArchJob, ArchivedIntention
 from .models.targets.github import IGHRaw, IGHEnrich
 from .models.targets.gitlab import IGLRaw, IGLEnrich
 from .models.targets.git import IGitRaw, IGitEnrich
+from .models.targets.meetup import IMeetupRaw, IMeetupEnrich
 
 User = get_user_model()
 
@@ -26,7 +27,7 @@ The precedence of a job is governed by the following rules:
 - Job that needs little time to run
 - Job that doesn't use a token
 """
-INTENTION_ORDER = [IGHEnrich, IGLEnrich, IGitEnrich, IGHRaw, IGLRaw, IGitRaw]
+INTENTION_ORDER = [IGHEnrich, IGLEnrich, IGitEnrich, IMeetupEnrich, IGHRaw, IGLRaw, IGitRaw, IMeetupRaw]
 
 
 class SchedWorker:
