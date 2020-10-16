@@ -3,6 +3,7 @@ import datetime
 
 from django.db import models, IntegrityError, transaction
 from django.conf import settings
+from django.db.models import Count
 from django.utils.timezone import now
 
 from poolsched import utils
@@ -107,10 +108,16 @@ class IRawManager(models.Manager):
         :param max:  maximum number of intentions to return
         :returns:    list of IGHRaw intentions
         """
-
-        intentions = self.filter(user=user,
-                                 job=None) \
-            .filter(user__ghtoken__reset__lt=now())
+        token_available = user.ghtokens.annotate(num_jobs=Count('jobs'))\
+            .filter(num_jobs__lt=GHToken.MAX_JOBS_TOKEN)\
+            .filter(reset__lt=now())\
+            .exists()
+        if not token_available:
+            logger.debug('No selectable intentions for this user (no token available)')
+            return []
+        intentions = self.filter(previous=None,
+                                 user=user,
+                                 job=None)
         return intentions.all()[:max]
 
 

@@ -52,6 +52,7 @@ class MeetupRaw(Backend):
                     logger.warning("RateLimitError. This task will be restarted in: "
                                    "{} minutes".format(restart_minutes))
                     return restart_minutes
+                return 1
 
         except Exception as e:
             logger.error("Error in raw data retrieval from Meetup. Cause: {}".format(e))
