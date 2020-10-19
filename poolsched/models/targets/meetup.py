@@ -8,7 +8,7 @@ from django.utils.timezone import now
 
 from poolsched import utils
 from ..intentions import Intention, ArchivedIntention
-from ..jobs import Job
+from ..jobs import Job, Log
 
 try:
     from mordred.backends.meetup import MeetupRaw, MeetupEnrich
@@ -96,8 +96,7 @@ class IRawManager(models.Manager):
             return []
         intentions = self.filter(previous=None,
                                  user=user,
-                                 job=None) \
-            .filter(user__meetuptoken__reset__lt=now())
+                                 job=None)
         return intentions.all()[:max]
 
 
@@ -131,6 +130,10 @@ class IMeetupRaw(Intention):
 
     def __str__(self):
         return f'Repo({self.repo})|User({self.user})|Prev({self.previous})|Job({self.job}))'
+
+    @property
+    def process_name(self):
+        return "Meetup data gathering"
 
     @classmethod
     @transaction.atomic
@@ -225,6 +228,8 @@ class IMeetupRaw(Intention):
         if not token:
             logger.error(f'Token not found for intention {self}')
             raise Job.StopException
+        self.job.logs = Log.objects.create(location=f"job-{job.id}.log")
+        self.job.save()
         fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
         try:
             global_logger.addHandler(fh)
@@ -245,12 +250,13 @@ class IMeetupRaw(Intention):
             return False
         return True
 
-    def archive(self, status=ArchivedIntention.OK):
+    def archive(self, status=ArchivedIntention.OK, arch_job=None):
         """Archive and remove the current intention"""
         IMeetupRawArchived.objects.create(user=self.user,
                                           repo=self.repo,
                                           created=self.created,
-                                          status=status)
+                                          status=status,
+                                          arch_job=arch_job)
         self.delete()
 
 
@@ -287,6 +293,10 @@ class IMeetupEnrich(Intention):
 
     def __str__(self):
         return f'Repo({self.repo})|User({self.user})|Prev({self.previous})|Job({self.job})'
+
+    @property
+    def process_name(self):
+        return "Meetup data enrichment"
 
     @classmethod
     @transaction.atomic
@@ -360,6 +370,8 @@ class IMeetupEnrich(Intention):
          :param job: job to be run
         """
         logger.info(f"Running MeetupEnrich intention: {self.repo.owner}/{self.repo.repo}")
+        self.job.logs = Log.objects.create(location=f"job-{job.id}.log")
+        self.job.save()
         fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
         global_logger.addHandler(fh)
         runner = MeetupEnrich(url=self.repo.url)
@@ -370,12 +382,13 @@ class IMeetupEnrich(Intention):
             raise Job.StopException
         return True
 
-    def archive(self, status=ArchivedIntention.OK):
+    def archive(self, status=ArchivedIntention.OK, arch_job=None):
         """Archive and remove the current intention"""
         IMeetupEnrichArchived.objects.create(user=self.user,
                                              repo=self.repo,
                                              created=self.created,
-                                             status=status)
+                                             status=status,
+                                             arch_job=arch_job)
         self.delete()
 
 
@@ -383,7 +396,15 @@ class IMeetupRawArchived(ArchivedIntention):
     """Archived Meetup Raw intention"""
     repo = models.ForeignKey(MeetupRepo, on_delete=models.PROTECT)
 
+    @property
+    def process_name(self):
+        return "Meetup data gathering"
+
 
 class IMeetupEnrichArchived(ArchivedIntention):
     """Archived Meetup Enrich intention"""
     repo = models.ForeignKey(MeetupRepo, on_delete=models.PROTECT)
+
+    @property
+    def process_name(self):
+        return "Meetup data enrichment"

@@ -8,7 +8,7 @@ from django.utils.timezone import now
 
 from poolsched import utils
 from ..intentions import Intention, ArchivedIntention
-from ..jobs import Job
+from ..jobs import Job, Log
 
 try:
     from mordred.backends.gitlab import GitLabRaw, GitLabEnrich
@@ -145,8 +145,6 @@ class IGLRaw(Intention):
         def __init__(self, token, message="GLToken exhausted"):
             """
             Job could not finish because token was exhausted.
-
-            :param reset: date when the token will be reset
             """
 
             self.message = message
@@ -154,6 +152,10 @@ class IGLRaw(Intention):
 
         def __str__(self):
             return self.message
+
+    @property
+    def process_name(self):
+        return "GitLab data gathering"
 
     @classmethod
     @transaction.atomic
@@ -243,6 +245,8 @@ class IGLRaw(Intention):
         if not token:
             logger.error(f'Token not found for intention {self}')
             raise Job.StopException
+        self.job.logs = Log.objects.create(location=f"job-{job.id}.log")
+        self.job.save()
         fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
         try:
             global_logger.addHandler(fh)
@@ -263,12 +267,13 @@ class IGLRaw(Intention):
             return False
         return True
 
-    def archive(self, status=ArchivedIntention.OK):
+    def archive(self, status=ArchivedIntention.OK, arch_job=None):
         """Archive and remove the current intention"""
         IGLRawArchived.objects.create(user=self.user,
                                       repo=self.repo,
                                       created=self.created,
-                                      status=status)
+                                      status=status,
+                                      arch_job=arch_job)
         self.delete()
 
 
@@ -303,6 +308,10 @@ class IGLEnrich(Intention):
     class Meta:
         db_table = TABLE_PREFIX + 'ienriched'
     objects = IEnrichedManager()
+
+    @property
+    def process_name(self):
+        return "Gitlab data enrichment"
 
     @classmethod
     @transaction.atomic
@@ -376,6 +385,8 @@ class IGLEnrich(Intention):
         :return:
         """
         logger.info(f"Running GitLabEnrich intention: {self.repo.owner}/{self.repo.repo}")
+        self.job.logs = Log.objects.create(location=f"job-{job.id}.log")
+        self.job.save()
         fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
         global_logger.addHandler(fh)
         runner = GitLabEnrich(url=self.repo.url)
@@ -386,12 +397,13 @@ class IGLEnrich(Intention):
             raise Job.StopException
         return True
 
-    def archive(self, status=ArchivedIntention.OK):
+    def archive(self, status=ArchivedIntention.OK, arch_job=None):
         """Archive and remove the current intention"""
         IGLEnrichArchived.objects.create(user=self.user,
                                          repo=self.repo,
                                          created=self.created,
-                                         status=status)
+                                         status=status,
+                                         arch_job=arch_job)
         self.delete()
 
 
@@ -399,7 +411,15 @@ class IGLRawArchived(ArchivedIntention):
     """Archived GitLab Raw intention"""
     repo = models.ForeignKey(GLRepo, on_delete=models.PROTECT)
 
+    @property
+    def process_name(self):
+        return "Gitlab data gathering"
+
 
 class IGLEnrichArchived(ArchivedIntention):
     """Archived GitLab Enrich intention"""
     repo = models.ForeignKey(GLRepo, on_delete=models.PROTECT)
+
+    @property
+    def process_name(self):
+        return "Gitlab data enrichment"

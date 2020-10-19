@@ -150,35 +150,38 @@ class SchedWorker:
             logger.debug(f"Intention to run (casted): {intention} ({intention.cast()})")
             completed = intention.cast().run(job)
             if completed:
-                self.archive_intentions(job.intention_set.all(), ArchivedIntention.OK)
-                self.archive_job(job)
+                intentions = list(job.intention_set.all())
+                arch_job = self.archive_job(job)
+                self.archive_intentions(intentions, ArchivedIntention.OK, arch_job)
             else:
                 job.worker = None
                 job.save()
         except Job.StopException as e:
             logger.debug(f"Intention stopped before completing: {job}")
-            self.archive_intentions(job.intention_set.all(), ArchivedIntention.ERROR)
-            self.archive_job(job)
+            intentions = list(job.intention_set.all())
+            arch_job = self.archive_job(job)
+            self.archive_intentions(intentions, ArchivedIntention.ERROR, arch_job)
         except Exception as e:
             logger.error(f"Other exception (error?): {job}, {e}")
             traceback.print_exc()
-            self.archive_intentions(job.intention_set.all(), ArchivedIntention.ERROR)
-            self.archive_job(job)
+            intentions = list(job.intention_set.all())
+            arch_job = self.archive_job(job)
+            self.archive_intentions(intentions, ArchivedIntention.ERROR, arch_job)
         return job
 
     def archive_job(self, job):
         """Archive the job, it is already done"""
-
         logger.info("Archiving job: " + str(model_to_dict(job)))
-        arch_job = ArchJob(created=job.created, worker=job.worker)
+        arch_job = ArchJob(created=job.created, worker=job.worker, logs=job.logs)
         arch_job.save()
         job.delete()
+        return arch_job
 
-    def archive_intentions(self, intentions, status):
+    def archive_intentions(self, intentions, status, arch_job):
         """Archive the intentions, they are already done"""
         for intention in intentions:
             logger.info("Archiving intention: " + str(model_to_dict(intention)))
-            intention.cast().archive(status)
+            intention.cast().archive(status, arch_job)
 
     def __init__(self, run=False, finish=False):
         """Start the party

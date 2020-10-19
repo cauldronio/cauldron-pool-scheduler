@@ -6,7 +6,7 @@ from django.utils.timezone import now
 
 from poolsched import utils
 from ..intentions import Intention, ArchivedIntention
-from ..jobs import Job
+from ..jobs import Job, Log
 
 try:
     from mordred.backends.git import GitEnrich, GitRaw
@@ -64,6 +64,10 @@ class IGitRaw(Intention):
     class Meta:
         db_table = TABLE_PREFIX + 'iraw'
     objects = IRawManager()
+
+    @property
+    def process_name(self):
+        return "Git data gathering"
 
     @classmethod
     @transaction.atomic
@@ -136,6 +140,8 @@ class IGitRaw(Intention):
         :param job: job to be run
         """
         logger.info(f"Running GitRaw intention: {self.repo.url}")
+        self.job.logs = Log.objects.create(location=f"job-{job.id}.log")
+        self.job.save()
         fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
         global_logger.addHandler(fh)
         runner = GitRaw(self.repo.url)
@@ -146,12 +152,13 @@ class IGitRaw(Intention):
             raise Job.StopException
         return True
 
-    def archive(self, status=ArchivedIntention.OK):
+    def archive(self, status=ArchivedIntention.OK, arch_job=None):
         """Archive and remove the current intention"""
         IGitRawArchived.objects.create(user=self.user,
                                        repo=self.repo,
                                        created=self.created,
-                                       status=status)
+                                       status=status,
+                                       arch_job=arch_job)
         self.delete()
 
 
@@ -187,6 +194,10 @@ class IGitEnrich(Intention):
     class Meta:
         db_table = TABLE_PREFIX + 'ienriched'
     objects = IEnrichedManager()
+
+    @property
+    def process_name(self):
+        return "Git data enrichment"
 
     @classmethod
     @transaction.atomic
@@ -260,6 +271,8 @@ class IGitEnrich(Intention):
         :return:
         """
         logger.info(f"Running GitEnrich intention: {self.repo.url}")
+        self.job.logs = Log.objects.create(location=f"job-{job.id}.log")
+        self.job.save()
         fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
         global_logger.addHandler(fh)
         runner = GitEnrich(self.repo.url)
@@ -269,18 +282,27 @@ class IGitEnrich(Intention):
             raise Job.StopException
         return True
 
-    def archive(self, status=ArchivedIntention.OK):
+    def archive(self, status=ArchivedIntention.OK, arch_job=None):
         """Archive and remove the current intention"""
         IGitEnrichArchived.objects.create(user=self.user,
                                           repo=self.repo,
                                           created=self.created,
-                                          status=status)
+                                          status=status,
+                                          arch_job=arch_job)
         self.delete()
 
 
 class IGitRawArchived(ArchivedIntention):
     repo = models.ForeignKey(GitRepo, on_delete=models.PROTECT)
 
+    @property
+    def process_name(self):
+        return "Git data gathering"
+
 
 class IGitEnrichArchived(ArchivedIntention):
     repo = models.ForeignKey(GitRepo, on_delete=models.PROTECT)
+
+    @property
+    def process_name(self):
+        return "Git data enrichment"

@@ -8,7 +8,7 @@ from django.utils.timezone import now
 
 from poolsched import utils
 from ..intentions import Intention, ArchivedIntention
-from ..jobs import Job
+from ..jobs import Job, Log
 
 try:
     from mordred.backends.github import GitHubRaw, GitHubEnrich
@@ -141,8 +141,6 @@ class IGHRaw(Intention):
         def __init__(self, token, message="GHToken exhausted"):
             """
             Job could not finish because token was exhausted.
-
-            :param reset: date when the token will be reset
             """
 
             self.message = message
@@ -153,6 +151,10 @@ class IGHRaw(Intention):
 
     def __str__(self):
         return f'Repo({self.repo})|User({self.user})|Prev({self.previous})|Job({self.job}))'
+
+    @property
+    def process_name(self):
+        return "GitHub data gathering"
 
     @classmethod
     @transaction.atomic
@@ -247,6 +249,8 @@ class IGHRaw(Intention):
         if not token:
             logger.error(f'Token not found for intention {self}')
             raise Job.StopException
+        self.job.logs = Log.objects.create(location=f"job-{job.id}.log")
+        self.job.save()
         fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
         try:
             global_logger.addHandler(fh)
@@ -267,12 +271,13 @@ class IGHRaw(Intention):
             return False
         return True
 
-    def archive(self, status=ArchivedIntention.OK):
+    def archive(self, status=ArchivedIntention.OK, arch_job=None):
         """Archive and remove the current intention"""
         IGHRawArchived.objects.create(user=self.user,
                                       repo=self.repo,
                                       created=self.created,
-                                      status=status)
+                                      status=status,
+                                      arch_job=arch_job)
         self.delete()
 
 
@@ -309,6 +314,10 @@ class IGHEnrich(Intention):
 
     def __str__(self):
         return f'Repo({self.repo})|User({self.user})|Prev({self.previous})|Job({self.job})'
+
+    @property
+    def process_name(self):
+        return "GitHub data enrichment"
 
     @classmethod
     @transaction.atomic
@@ -382,6 +391,8 @@ class IGHEnrich(Intention):
          :param job: job to be run
         """
         logger.info(f"Running GitHubEnrich intention: {self.repo.owner}/{self.repo.repo}")
+        self.job.logs = Log.objects.create(location=f"job-{job.id}.log")
+        self.job.save()
         fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
         global_logger.addHandler(fh)
         runner = GitHubEnrich(url=self.repo.url)
@@ -392,12 +403,13 @@ class IGHEnrich(Intention):
             raise Job.StopException
         return True
 
-    def archive(self, status=ArchivedIntention.OK):
+    def archive(self, status=ArchivedIntention.OK, arch_job=None):
         """Archive and remove the current intention"""
         IGHEnrichArchived.objects.create(user=self.user,
                                          repo=self.repo,
                                          created=self.created,
-                                         status=status)
+                                         status=status,
+                                         arch_job=arch_job)
         self.delete()
 
 
@@ -405,7 +417,16 @@ class IGHRawArchived(ArchivedIntention):
     """Archived GitHub Raw intention"""
     repo = models.ForeignKey(GHRepo, on_delete=models.PROTECT)
 
+    @property
+    def process_name(self):
+        return "GitHub data gathering"
+
 
 class IGHEnrichArchived(ArchivedIntention):
     """Archived GitHub Enrich intention"""
     repo = models.ForeignKey(GHRepo, on_delete=models.PROTECT)
+
+    @property
+    def process_name(self):
+        return "GitHub data enrichment"
+
