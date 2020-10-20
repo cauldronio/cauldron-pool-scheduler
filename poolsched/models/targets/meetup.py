@@ -224,7 +224,7 @@ class IMeetupRaw(Intention):
         :param job: job to be run
         """
         token = job.meetuptokens.filter(reset__lt=now()).first()
-        logger.info(f"Running MeetupRaw intention: {self.repo.owner}/{self.repo.repo}, token: {token}")
+        logger.info(f"Running MeetupRaw intention: {self.repo.repo}, token: {token}")
         if not token:
             logger.error(f'Token not found for intention {self}')
             raise Job.StopException
@@ -233,7 +233,7 @@ class IMeetupRaw(Intention):
         fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
         try:
             global_logger.addHandler(fh)
-            runner = MeetupRaw(url=self.repo.url, token=token.token)
+            runner = MeetupRaw(url=self.repo.repo, token=token.token)
             output = runner.run()
         except Exception as e:
             logger.error(f"Error running MeetupRaw intention {str(e)}")
@@ -369,12 +369,12 @@ class IMeetupEnrich(Intention):
 
          :param job: job to be run
         """
-        logger.info(f"Running MeetupEnrich intention: {self.repo.owner}/{self.repo.repo}")
+        logger.info(f"Running MeetupEnrich intention: {self.repo.repo}")
         self.job.logs = Log.objects.create(location=f"job-{job.id}.log")
         self.job.save()
         fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
         global_logger.addHandler(fh)
-        runner = MeetupEnrich(url=self.repo.url)
+        runner = MeetupEnrich(url=self.repo.repo)
         output = runner.run()
         global_logger.removeHandler(fh)
         if output:
