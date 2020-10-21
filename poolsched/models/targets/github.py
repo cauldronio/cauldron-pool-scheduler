@@ -49,6 +49,7 @@ class GHRepo(models.Model):
 
     class Meta:
         db_table = TABLE_PREFIX + 'repo'
+        verbose_name_plural = "Repositories GitHub"
         # The combination (onwer, repo, instance) should be unique
         unique_together = ('owner', 'repo', 'instance')
 
@@ -84,6 +85,7 @@ class GHToken(models.Model):
 
     class Meta:
         db_table = TABLE_PREFIX + 'token'
+        verbose_name_plural = "Tokens GitHub"
 
     @property
     def is_ready(self):
@@ -129,6 +131,7 @@ class IGHRaw(Intention):
 
     class Meta:
         db_table = TABLE_PREFIX + 'iraw'
+        verbose_name_plural = "Intentions GHRaw"
     objects = IRawManager()
 
     class TokenExhaustedException(Job.StopException):
@@ -169,7 +172,7 @@ class IGHRaw(Intention):
 
         job = None
         intention = IGHRaw.objects\
-            .select_related('job').select_for_update()\
+            .select_related('job')\
             .exclude(job=None).filter(job__worker=None).filter(job__ghtoken__reset__lt=now())\
             .first()
         if intention:
@@ -310,6 +313,7 @@ class IGHEnrich(Intention):
 
     class Meta:
         db_table = TABLE_PREFIX + 'ienriched'
+        verbose_name_plural = "Intentions GHEnrich"
     objects = IEnrichedManager()
 
     def __str__(self):
@@ -332,7 +336,7 @@ class IGHEnrich(Intention):
 
         job = None
         intention = IGHEnrich.objects\
-            .select_related('job').select_for_update()\
+            .select_related('job')\
             .exclude(job=None).filter(job__worker=None)\
             .first()
         if intention:
@@ -417,6 +421,9 @@ class IGHRawArchived(ArchivedIntention):
     """Archived GitHub Raw intention"""
     repo = models.ForeignKey(GHRepo, on_delete=models.PROTECT)
 
+    class Meta:
+        verbose_name_plural = "Archived GitHubRaw"
+
     @property
     def process_name(self):
         return "GitHub data gathering"
@@ -425,6 +432,9 @@ class IGHRawArchived(ArchivedIntention):
 class IGHEnrichArchived(ArchivedIntention):
     """Archived GitHub Enrich intention"""
     repo = models.ForeignKey(GHRepo, on_delete=models.PROTECT)
+
+    class Meta:
+        verbose_name_plural = "Archived GitHubEnrich"
 
     @property
     def process_name(self):

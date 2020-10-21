@@ -31,6 +31,7 @@ class GitRepo(models.Model):
 
     class Meta:
         db_table = TABLE_PREFIX + 'repo'
+        verbose_name_plural = "Repositories Git"
 
 
 class IRawManager(models.Manager):
@@ -63,6 +64,7 @@ class IGitRaw(Intention):
 
     class Meta:
         db_table = TABLE_PREFIX + 'iraw'
+        verbose_name_plural = "Intentions GitRaw"
     objects = IRawManager()
 
     @property
@@ -81,7 +83,7 @@ class IGitRaw(Intention):
         """
         job = None
         intention = IGitRaw.objects\
-            .select_related('job').select_for_update()\
+            .select_related('job')\
             .exclude(job=None).filter(job__worker=None)\
             .first()
         if intention:
@@ -193,6 +195,7 @@ class IGitEnrich(Intention):
 
     class Meta:
         db_table = TABLE_PREFIX + 'ienriched'
+        verbose_name_plural = "Intentions GitEnrich"
     objects = IEnrichedManager()
 
     @property
@@ -211,7 +214,7 @@ class IGitEnrich(Intention):
         """
         job = None
         intention = IGitEnrich.objects\
-            .select_related('job').select_for_update()\
+            .select_related('job')\
             .exclude(job=None).filter(job__worker=None)\
             .first()
         if intention:
@@ -295,6 +298,9 @@ class IGitEnrich(Intention):
 class IGitRawArchived(ArchivedIntention):
     repo = models.ForeignKey(GitRepo, on_delete=models.PROTECT)
 
+    class Meta:
+        verbose_name_plural = "Archived GitRaw"
+
     @property
     def process_name(self):
         return "Git data gathering"
@@ -302,6 +308,9 @@ class IGitRawArchived(ArchivedIntention):
 
 class IGitEnrichArchived(ArchivedIntention):
     repo = models.ForeignKey(GitRepo, on_delete=models.PROTECT)
+
+    class Meta:
+        verbose_name_plural = "Archived GitEnrich"
 
     @property
     def process_name(self):

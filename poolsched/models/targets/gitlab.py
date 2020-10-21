@@ -50,12 +50,9 @@ class GLRepo(models.Model):
 
     class Meta:
         db_table = TABLE_PREFIX + 'repo'
+        verbose_name_plural = "Repositories GitLab"
         # The combination (onwer, repo, instance) should be unique
         unique_together = ('owner', 'repo', 'instance')
-
-    def has_intentions(self):
-        """Simple way to know if a repository is being analyzed"""
-        return (self.iglraw_set is not None) or (self.iglenrich_set is not None)
 
     @property
     def url(self):
@@ -88,6 +85,7 @@ class GLToken(models.Model):
 
     class Meta:
         db_table = TABLE_PREFIX + 'token'
+        verbose_name_plural = "Tokens GitLab"
 
     @property
     def is_ready(self):
@@ -133,6 +131,7 @@ class IGLRaw(Intention):
 
     class Meta:
         db_table = TABLE_PREFIX + 'iraw'
+        verbose_name_plural = "Intentions GLRaw"
     objects = IRawManager()
 
     class TokenExhaustedException(Job.StopException):
@@ -170,7 +169,7 @@ class IGLRaw(Intention):
 
         job = None
         intention = IGLRaw.objects\
-            .select_related('job').select_for_update()\
+            .select_related('job')\
             .exclude(job=None).filter(job__worker=None).filter(job__gltoken__reset__lt=now())\
             .first()
         if intention:
@@ -307,6 +306,7 @@ class IGLEnrich(Intention):
 
     class Meta:
         db_table = TABLE_PREFIX + 'ienriched'
+        verbose_name_plural = "Intentions GLEnrich"
     objects = IEnrichedManager()
 
     @property
@@ -326,7 +326,7 @@ class IGLEnrich(Intention):
 
         job = None
         intention = IGLEnrich.objects\
-            .select_related('job').select_for_update()\
+            .select_related('job')\
             .exclude(job=None).filter(job__worker=None)\
             .first()
         if intention:
@@ -411,6 +411,9 @@ class IGLRawArchived(ArchivedIntention):
     """Archived GitLab Raw intention"""
     repo = models.ForeignKey(GLRepo, on_delete=models.PROTECT)
 
+    class Meta:
+        verbose_name_plural = "Archived GitLabRaw"
+
     @property
     def process_name(self):
         return "Gitlab data gathering"
@@ -419,6 +422,9 @@ class IGLRawArchived(ArchivedIntention):
 class IGLEnrichArchived(ArchivedIntention):
     """Archived GitLab Enrich intention"""
     repo = models.ForeignKey(GLRepo, on_delete=models.PROTECT)
+
+    class Meta:
+        verbose_name_plural = "Archived GitLabEnrich"
 
     @property
     def process_name(self):

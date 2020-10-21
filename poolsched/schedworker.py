@@ -45,8 +45,8 @@ class SchedWorker:
         :param max: maximum number of users
         :returns:   list of User objects
         """
-        # TODO: Select ONLY USERS WITH INTENTIONS
-        q = User.objects.filter(intention__previous=None,
+        q = User.objects.filter(intention__isnull=False,
+                                intention__previous=None,
                                 intention__job=None).distinct()
         count = q.count()
         users = [q[i] for i in sample(range(count), min(max, count))]
@@ -193,7 +193,6 @@ class SchedWorker:
         self.worker = Worker.objects.create()
         self.workers.append(self.worker)
         while run:
-            debug_intentions = Intention.objects.all()
             logger.info("Waiting for new tasks...")
             # Get next job, among those available to run
             job = self.next_job()
@@ -208,8 +207,9 @@ class SchedWorker:
                     job = self.get_new_job(max_users=4)
                     logger.debug(f"Job obtained from get_new_job(): {job}")
             if job is not None:
-                logger.debug(f"About to run job: {job}")
-                self.run_job(job)
+                if job.worker == self.worker:
+                    logger.debug(f"About to run job: {job}")
+                    self.run_job(job)
             else:
                 if finish:
                     if worker_jobs == 0:

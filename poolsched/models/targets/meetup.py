@@ -33,6 +33,7 @@ class MeetupRepo(models.Model):
 
     class Meta:
         db_table = TABLE_PREFIX + 'repo'
+        verbose_name_plural = "Repositories Meetup"
 
 
 class MeetupToken(models.Model):
@@ -63,6 +64,7 @@ class MeetupToken(models.Model):
 
     class Meta:
         db_table = TABLE_PREFIX + 'token'
+        verbose_name_plural = "Tokens Meetup"
 
     @property
     def is_ready(self):
@@ -108,6 +110,7 @@ class IMeetupRaw(Intention):
 
     class Meta:
         db_table = TABLE_PREFIX + 'iraw'
+        verbose_name_plural = "Intentions MeetRaw"
     objects = IRawManager()
 
     class TokenExhaustedException(Job.StopException):
@@ -148,7 +151,7 @@ class IMeetupRaw(Intention):
 
         job = None
         intention = IMeetupRaw.objects\
-            .select_related('job').select_for_update()\
+            .select_related('job')\
             .exclude(job=None).filter(job__worker=None).filter(job__meetuptoken__reset__lt=now())\
             .first()
         if intention:
@@ -289,6 +292,7 @@ class IMeetupEnrich(Intention):
 
     class Meta:
         db_table = TABLE_PREFIX + 'ienriched'
+        verbose_name_plural = "Intentions MeetEnrich"
     objects = IEnrichedManager()
 
     def __str__(self):
@@ -311,7 +315,7 @@ class IMeetupEnrich(Intention):
 
         job = None
         intention = IMeetupEnrich.objects\
-            .select_related('job').select_for_update()\
+            .select_related('job')\
             .exclude(job=None).filter(job__worker=None)\
             .first()
         if intention:
@@ -396,6 +400,9 @@ class IMeetupRawArchived(ArchivedIntention):
     """Archived Meetup Raw intention"""
     repo = models.ForeignKey(MeetupRepo, on_delete=models.PROTECT)
 
+    class Meta:
+        verbose_name_plural = "Archived MeetupRaw"
+
     @property
     def process_name(self):
         return "Meetup data gathering"
@@ -404,6 +411,9 @@ class IMeetupRawArchived(ArchivedIntention):
 class IMeetupEnrichArchived(ArchivedIntention):
     """Archived Meetup Enrich intention"""
     repo = models.ForeignKey(MeetupRepo, on_delete=models.PROTECT)
+
+    class Meta:
+        verbose_name_plural = "Archived MeetupEnrich"
 
     @property
     def process_name(self):
