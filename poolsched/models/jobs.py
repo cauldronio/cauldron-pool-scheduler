@@ -4,6 +4,10 @@ from django.utils.timezone import now
 from . import workers
 
 
+class Log(models.Model):
+    location = models.CharField(max_length=255, default=None, null=True)
+
+
 class Job(models.Model):
 
     class StopException(Exception):
@@ -18,6 +22,8 @@ class Job(models.Model):
     # Worker dealing with this job, if any
     worker = models.ForeignKey(workers.Worker, on_delete=models.SET_NULL,
                                default=None, null=True, blank=True)
+    logs = models.ForeignKey(Log, on_delete=models.SET_NULL,
+                             default=None, null=True)
 
 
 class ArchJob(models.Model):
@@ -30,3 +36,5 @@ class ArchJob(models.Model):
     # Worker archiving it
     worker = models.ForeignKey(workers.Worker, on_delete=models.SET_NULL,
                                default=None, null=True, blank=True)
+    logs = models.ForeignKey(Log, on_delete=models.SET_NULL,
+                             default=None, null=True)

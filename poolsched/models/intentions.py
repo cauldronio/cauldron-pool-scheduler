@@ -33,6 +33,10 @@ class Intention(models.Model):
     class Meta:
         abstract = False
 
+    @property
+    def process_name(self):
+        raise NotImplementedError
+
     def _create_previous(self):
         """Create all needed previous intentions (no previous intention needed)
 
@@ -95,6 +99,9 @@ class ArchivedIntention(models.Model):
     created = models.DateTimeField()
     completed = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=2, choices=STATUS_CHOICES, default=OK)
+    arch_job = models.ForeignKey(jobs.ArchJob, on_delete=models.SET_NULL,
+                            default=None, null=True, blank=True)
 
-    class Meta:
-        abstract = True
+    @property
+    def process_name(self):
+        raise NotImplementedError

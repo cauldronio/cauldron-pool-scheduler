@@ -3,38 +3,43 @@ from .models import git, github, gitlab, meetup
 from .models import Worker, Job, Intention, ArchJob
 
 
+@admin.register(git.IGitRaw, git.IGitEnrich,
+                github.IGHRaw, github.IGHEnrich,
+                gitlab.IGLRaw, gitlab.IGLEnrich,
+                meetup.IMeetupRaw, meetup.IMeetupEnrich)
+class IntentionAdmin(admin.ModelAdmin):
+    list_display = ('job', 'user', 'created')
+
+
+@admin.register(git.IGitRawArchived, git.IGitEnrichArchived,
+                github.IGHRawArchived, github.IGHEnrichArchived,
+                gitlab.IGLRawArchived, gitlab.IGLEnrichArchived,
+                meetup.IMeetupRawArchived, meetup.IMeetupEnrichArchived)
+class ArchIntentionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'created', 'completed', 'status', 'arch_job')
+
+
+@admin.register(Job)
+class JobAdmin(admin.ModelAdmin):
+    list_display = ('created', 'worker', 'logs')
+
+
+# Common
 admin.site.register(Worker)
 admin.site.register(Intention)
-admin.site.register(Job)
 admin.site.register(ArchJob)
 
 # Git
 admin.site.register(git.GitRepo)
-admin.site.register(git.IGitRaw)
-admin.site.register(git.IGitEnrich)
-admin.site.register(git.IGitRawArchived)
-admin.site.register(git.IGitEnrichArchived)
 
 # GitHub
 admin.site.register(github.GHRepo)
 admin.site.register(github.GHToken)
-admin.site.register(github.IGHRaw)
-admin.site.register(github.IGHEnrich)
-admin.site.register(github.IGHRawArchived)
-admin.site.register(github.IGHEnrichArchived)
 
 # GitLab
 admin.site.register(gitlab.GLRepo)
 admin.site.register(gitlab.GLToken)
-admin.site.register(gitlab.IGLRaw)
-admin.site.register(gitlab.IGLEnrich)
-admin.site.register(gitlab.IGLRawArchived)
-admin.site.register(gitlab.IGLEnrichArchived)
 
 # Meetup
 admin.site.register(meetup.MeetupRepo)
 admin.site.register(meetup.MeetupToken)
-admin.site.register(meetup.IMeetupRaw)
-admin.site.register(meetup.IMeetupEnrich)
-admin.site.register(meetup.IMeetupRawArchived)
-admin.site.register(meetup.IMeetupEnrichArchived)
