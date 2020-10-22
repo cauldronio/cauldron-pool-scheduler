@@ -33,9 +33,6 @@ INTENTION_ORDER = [IGHEnrich, IGLEnrich, IGitEnrich, IMeetupEnrich, IGHRaw, IGLR
 class SchedWorker:
     """Workers for which jobs are scheduled"""
 
-    # List of workers currently working
-    workers = []
-
     def _get_random_user_ready(self, max=1):
         """Get random user ids, for users with ready Intentions.
 
@@ -92,9 +89,12 @@ class SchedWorker:
         for intention in intentions:
             job = intention.running_job()
             if job is None:
+                # Create job and assign the worker
                 job = intention.create_job(self.worker)
-                intention.save()
                 break
+            else:
+                # There is a job but not for this worker
+                job = None
         return job
 
     def get_new_job(self, max_users=2, max_intentions=1):
@@ -120,7 +120,6 @@ class SchedWorker:
         intentions = self._get_intentions(users=users, max=max_intentions)
         logger.debug("get_job() intentions: " + str(intentions))
         job = self._new_job(intentions)
-        logger.debug("get_job() job: " + str(job))
         if job is not None:
             logger.debug("get_job() job: " + str(model_to_dict(job)))
         return job
@@ -191,7 +190,6 @@ class SchedWorker:
         """
         logger.info("Starting scheduler worker...")
         self.worker = Worker.objects.create()
-        self.workers.append(self.worker)
         while run:
             logger.info("Waiting for new tasks...")
             # Get next job, among those available to run
@@ -200,7 +198,7 @@ class SchedWorker:
             if job is None:
                 # No job available (but maybe there are available intentions)
                 worker_jobs = Job.objects.exclude(worker=None).count()
-                workers_no = len(self.workers)
+                workers_no = Worker.objects.count()
                 logger.debug(f"Jobs in worker (workers): {worker_jobs} ({workers_no})")
                 if worker_jobs < (5 * workers_no):
                     # Get a new job for worker, if we don't have too many

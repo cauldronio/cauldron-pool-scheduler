@@ -115,26 +115,6 @@ class IGitRaw(Intention):
         self.save()
         return self.job
 
-    def create_job(self, worker):
-        """Create a new job for this intention, add it
-
-        Adds the job to the intention, too.
-
-        :param worker: Worker willing to create the job.
-        :returns:      Job created, or None
-        """
-
-        job = None
-        try:
-            with transaction.atomic():
-                # TODO: Race condition?
-                if self.job is None:
-                    job = Job.objects.create(worker=worker)
-                    self.job = job
-        except IntegrityError:
-            return None
-        return job
-
     def run(self, job):
         """Run the code to fulfill this intention.
         Returns true if completed
@@ -249,24 +229,6 @@ class IGitEnrich(Intention):
             # No intention with a job for the same repo found
             return None
         return self.job
-
-    def create_job(self, worker):
-        """Create a new job for this intention and assign it
-
-        :param worker: Worker willing to create the job.
-        :return: Job created or None
-        """
-        job = None
-        try:
-            with transaction.atomic():
-                # TODO: Race condition?
-                if self.job is None:
-                    job = Job.objects.create(worker=worker)
-                    self.job = job
-                    self.save()
-        except IntegrityError:
-            return None
-        return job
 
     def run(self, job):
         """Run the code to fulfill this intention

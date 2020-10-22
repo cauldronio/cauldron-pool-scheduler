@@ -1,6 +1,6 @@
 from logging import getLogger
 
-from django.db import models
+from django.db import models, transaction, OperationalError, IntegrityError
 from django.conf import settings
 
 from . import jobs
@@ -53,6 +53,38 @@ class Intention(models.Model):
         return intentions
 
     _subfields_list = None
+
+    def queryset(self):
+        return self.__class__.objects.filter(id=self.id)
+
+    def create_job(self, worker):
+        """Create a new job for this intention and worker
+        Adds the job to the intention, too.
+
+        If the worker didn't create the job, return None
+
+        :param worker: Worker willing to create the job.
+        :returns:      Job created by the worker, or None
+        """
+        try:
+            with transaction.atomic():
+                try:
+                    intention = self.queryset().select_for_update(nowait=True).get()
+                except OperationalError:
+                    logger.warning('Intention locked in create_job()')
+                    return None
+
+                # We have to check this now that we have the intention
+                if intention.job:
+                    # Job NOT created by the worker
+                    return None
+
+                job = jobs.Job.objects.create(worker=worker)
+                self.job = job
+                self.save()
+        except IntegrityError:
+            return None
+        return job
 
     @classmethod
     def _subfields(cls):

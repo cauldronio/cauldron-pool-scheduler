@@ -216,31 +216,28 @@ class IGHRaw(Intention):
             return None
 
     def create_job(self, worker):
-        """Create a new job for this intention, add it
-
+        """Create a new job for this intention
         Adds the job to the intention, too.
+
+        If the worker didn't create the job, return None
+
         A IRaW intention cannot run if there are too many jobs
         using available tokens.
 
         :param worker: Worker willing to create the job.
-        :returns:      Job created, or None
+        :returns:      Job created by the worker, or None
         """
-
-        # Check for available tokens (with not too many jobs)
-        job = None
-        try:
-            with transaction.atomic():
-                tokens = self.user.ghtokens.all()
-                for token in tokens:
-                    if token.jobs.count() < token.MAX_JOBS_TOKEN:
-                        # Available token found, create job if needed
-                        if self.job is None:
-                            job = Job.objects.create(worker=worker)
-                            self.job = job
-                        token.jobs.add(self.job)
-        except IntegrityError:
-            return None
-        return job
+        tokens = self.user.ghtokens\
+            .annotate(num_jobs=Count('jobs'))\
+            .filter(num_jobs__lt=GHToken.MAX_JOBS_TOKEN)
+        # Only create the job if there is at least one token
+        if tokens:
+            job = super().create_job(worker)
+            self.refresh_from_db()
+            if self.job:
+                self.job.ghtokens.add(*tokens)
+            return job
+        return None
 
     def run(self, job):
         """Run the code to fulfill this intention
@@ -370,23 +367,6 @@ class IGHEnrich(Intention):
             # No intention with a job for the same repo found
             return None
         return self.job
-
-    def create_job(self, worker):
-        """Create a new job for this intention and assign it
-
-        :param worker: Worker willing to create the job.
-        :return: Job created or None
-        """
-        job = None
-        try:
-            with transaction.atomic():
-                # TODO: Race condition?
-                if self.job is None:
-                    job = Job.objects.create(worker=worker)
-                    self.job = job
-        except IntegrityError:
-            return None
-        return job
 
     def run(self, job):
         """Run the code to fulfill this intention
