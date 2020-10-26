@@ -122,16 +122,18 @@ class IGitRaw(Intention):
         :param job: job to be run
         """
         logger.info(f"Running GitRaw intention: {self.repo.url}")
-        self.job.logs = Log.objects.create(location=f"job-{job.id}.log")
-        self.job.save()
-        fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
-        global_logger.addHandler(fh)
-        runner = GitRaw(self.repo.url)
-        output = runner.run()
-        global_logger.removeHandler(fh)
-        if output:
-            logger.error(output)
+        handler = self._create_log_handler(job)
+        try:
+            global_logger.addHandler(handler)
+            runner = GitRaw(self.repo.url)
+            output = runner.run()
+            if output:
+                raise Job.StopException
+        except Exception as e:
+            logger.error(f"Error: {e}")
             raise Job.StopException
+        finally:
+            global_logger.removeHandler(handler)
         return True
 
     def archive(self, status=ArchivedIntention.OK, arch_job=None):
@@ -236,15 +238,18 @@ class IGitEnrich(Intention):
         :return:
         """
         logger.info(f"Running GitEnrich intention: {self.repo.url}")
-        self.job.logs = Log.objects.create(location=f"job-{job.id}.log")
-        self.job.save()
-        fh = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
-        global_logger.addHandler(fh)
-        runner = GitEnrich(self.repo.url)
-        output = runner.run()
-        global_logger.removeHandler(fh)
-        if output:
+        handler = self._create_log_handler(job)
+        try:
+            global_logger.addHandler(handler)
+            runner = GitEnrich(self.repo.url)
+            output = runner.run()
+            if output:
+                raise Job.StopException
+        except Exception as e:
+            logger.error(f"Error: {e}")
             raise Job.StopException
+        finally:
+            global_logger.removeHandler(handler)
         return True
 
     def archive(self, status=ArchivedIntention.OK, arch_job=None):

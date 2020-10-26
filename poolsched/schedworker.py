@@ -197,6 +197,7 @@ class SchedWorker:
             logger.debug(f"Job obtained from next_job(): {job}")
             if job is None:
                 # No job available (but maybe there are available intentions)
+                # TODO: Change the way we get the number of workers
                 worker_jobs = Job.objects.exclude(worker=None).count()
                 workers_no = Worker.objects.count()
                 logger.debug(f"Jobs in worker (workers): {worker_jobs} ({workers_no})")

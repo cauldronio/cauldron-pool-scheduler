@@ -4,6 +4,8 @@ from django.db import models, transaction, OperationalError, IntegrityError
 from django.conf import settings
 
 from . import jobs
+from .jobs import Log
+from .. import utils
 
 logger = getLogger(__name__)
 
@@ -116,6 +118,12 @@ class Intention(models.Model):
         # Exception raised, or all subfield attributes are None
         logger.debug(f"Casting as intention (error?): {self}, {self.__class__}")
         return self
+
+    def _create_log_handler(self, job):
+        job.logs = Log.objects.create(location=f"job-{job.id}.log")
+        job.save()
+        handler = utils.file_formatter(f"{settings.JOB_LOGS}/job-{job.id}.log")
+        return handler
 
 
 class ArchivedIntention(models.Model):
