@@ -9,3 +9,4 @@ class Worker(models.Model):
 
     status = models.CharField(max_length=1, choices=Status.choices,
                               default=Status.DOWN)
+    machine = models.CharField(max_length=30, default='Unknown')

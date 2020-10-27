@@ -50,17 +50,23 @@ class RunningInAWorker(admin.SimpleListFilter):
 @admin.register(Job)
 class JobAdmin(admin.ModelAdmin):
     list_display = ('id', 'created', 'worker', 'logs')
-    search_fields = ('id', 'worker')
+    search_fields = ('id',)
     list_filter = ('created',)
     ordering = ('created', )
 
 
 @admin.register(ArchJob)
 class ArchJobAdmin(admin.ModelAdmin):
-    list_display = ('id', 'created', 'archived', 'worker', 'logs')
-    search_fields = ('id', 'logs')
+    list_display = ('id', 'created', 'archived', 'worker', 'worker_machine', 'logs')
+    search_fields = ('id',)
     list_filter = ('created', 'archived')
     ordering = ('archived', )
+
+    def worker_machine(self, obj):
+        try:
+            return obj.worker.machine
+        except AttributeError:
+            return None
 
 
 @admin.register(Intention)
@@ -88,9 +94,9 @@ class ArchivedIntentionAdmin(admin.ModelAdmin):
 
 @admin.register(Worker)
 class WorkerAdmin(admin.ModelAdmin):
-    list_display = ('id', 'status', 'running_job')
+    list_display = ('id', 'status', 'machine', 'running_job')
     search_fields = ('id', 'status')
-    list_filter = ('status',)
+    list_filter = ('status', 'machine')
     ordering = ('-id', )
 
     def running_job(self, obj):
@@ -135,7 +141,7 @@ class MeetupIntentionAdmin(admin.ModelAdmin):
 
 @admin.register(git.IGitRawArchived, git.IGitEnrichArchived)
 class GitArchivedIntentionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'repo_url', 'created', 'completed', user_name, 'status')
+    list_display = ('id', 'repo_url', 'created', 'completed', user_name, 'status', 'arch_job')
     search_fields = ('id', 'repo__url', 'user__first_name', 'status')
     list_filter = ('status', 'created', 'completed')
     ordering = ('completed', )
@@ -146,8 +152,8 @@ class GitArchivedIntentionAdmin(admin.ModelAdmin):
 
 @admin.register(github.IGHRawArchived, github.IGHEnrichArchived, gitlab.IGLRawArchived, gitlab.IGLEnrichArchived)
 class GHGLArchivedIntentionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'repo_owner', 'repo_name', 'created', 'completed', user_name, 'status')
-    search_fields = ('id', 'repo__owner', 'repo__name', 'user__first_name', 'status')
+    list_display = ('id', 'repo_owner', 'repo_name', 'created', 'completed', user_name, 'status', 'arch_job')
+    search_fields = ('id', 'repo__owner', 'repo__repo', 'user__first_name', 'status')
     list_filter = ('status', 'created', 'completed')
     ordering = ('completed', )
 
@@ -160,7 +166,7 @@ class GHGLArchivedIntentionAdmin(admin.ModelAdmin):
 
 @admin.register(meetup.IMeetupRawArchived, meetup.IMeetupEnrichArchived)
 class MeetArchivedIntentionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'repo_group', 'created', 'completed', user_name, 'status')
+    list_display = ('id', 'repo_group', 'created', 'completed', user_name, 'status', 'arch_job')
     search_fields = ('id', 'repo__repo', 'user__first_name', 'status')
     list_filter = ('status', 'created', 'completed')
     ordering = ('completed', )

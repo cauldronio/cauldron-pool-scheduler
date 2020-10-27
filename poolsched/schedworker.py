@@ -4,13 +4,14 @@ API for poolsched (scheduling of a pool of tasks)
 
 import logging
 import traceback
+import socket
 from time import sleep
 from random import sample
 
 from django.forms.models import model_to_dict
 from django.contrib.auth import get_user_model
 
-from .models import Worker, Intention, Job, ArchJob, ArchivedIntention
+from .models import Worker, Job, ArchJob, ArchivedIntention
 from .models.targets.github import IGHRaw, IGHEnrich
 from .models.targets.gitlab import IGLRaw, IGLEnrich
 from .models.targets.git import IGitRaw, IGitEnrich
@@ -18,8 +19,13 @@ from .models.targets.meetup import IMeetupRaw, IMeetupEnrich
 
 User = get_user_model()
 
+# Default global level to DEBUG. Control level with handlers
+logging.getLogger().setLevel(logging.DEBUG)
+
 logger = logging.getLogger(__name__)
-# logging.basicConfig(level=logging.DEBUG)
+LOG_LEVEL = logging.INFO
+
+
 
 """
 The precedence of a job is governed by the following rules:
@@ -144,9 +150,9 @@ class SchedWorker:
         """
 
         try:
-            logger.debug(f"Job to run: {job}")
+            logger.info(f"Job to run: {model_to_dict(job)}")
             intention = job.intention_set.first()
-            logger.debug(f"Intention to run (casted): {intention} ({intention.cast()})")
+            logger.info(f"Intention to run (casted): {model_to_dict(intention)} ({model_to_dict(intention.cast())})")
             completed = intention.cast().run(job)
             if completed:
                 intentions = list(job.intention_set.all())
@@ -182,6 +188,16 @@ class SchedWorker:
             logger.info("Archiving intention: " + str(model_to_dict(intention)))
             intention.cast().archive(status, arch_job)
 
+    def configure_logging(self):
+        """Configure logging for poolsched module"""
+        name = f"worker_{self.worker.id}"
+        scheduler_log = logging.getLogger('poolsched')
+        formatter = logging.Formatter(f"[%(levelname)s - {name} - %(asctime)s] - %(message)s")
+        handler = logging.StreamHandler()
+        handler.setFormatter(formatter)
+        handler.setLevel(LOG_LEVEL)
+        scheduler_log.addHandler(handler)
+
     def __init__(self, run=False, finish=False):
         """Start the party
 
@@ -189,9 +205,14 @@ class SchedWorker:
         :param finish: finish when there are no more jobs
         """
         logger.info("Starting scheduler worker...")
-        self.worker = Worker.objects.create()
+        worker_location = socket.gethostname()
+        self.worker = Worker.objects.create(status=Worker.Status.UP, machine=worker_location)
+        self.configure_logging()
+        wait_task_msg = True
         while run:
-            logger.info("Waiting for new tasks...")
+            if wait_task_msg:
+                logger.info("Waiting for new tasks...")
+                wait_task_msg = False
             # Get next job, among those available to run
             job = self.next_job()
             logger.debug(f"Job obtained from next_job(): {job}")
@@ -209,6 +230,7 @@ class SchedWorker:
                 if job.worker == self.worker:
                     logger.debug(f"About to run job: {job}")
                     self.run_job(job)
+                    wait_task_msg = True
             else:
                 if finish:
                     if worker_jobs == 0:

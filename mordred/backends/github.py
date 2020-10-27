@@ -21,7 +21,7 @@ from .base import Backend
 
 logger = logging.getLogger(__name__)
 
-PROJECTS_FILE = 'tmp_projects.json'
+PROJECTS_FILE = '/tmp/tmp_projects.json'
 BACKEND_SECTIONS = ['github:issue', 'github:repo', 'github2:issue']
 
 

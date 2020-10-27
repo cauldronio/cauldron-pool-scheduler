@@ -1,5 +1,6 @@
 from logging import getLogger
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction, OperationalError, IntegrityError
 from django.conf import settings
 
@@ -75,6 +76,9 @@ class Intention(models.Model):
                 except OperationalError:
                     logger.warning('Intention locked in create_job()')
                     return None
+                except ObjectDoesNotExist:
+                    # The object could be already analyzed
+                    return None
 
                 # We have to check this now that we have the intention
                 if intention.job:
@@ -87,6 +91,22 @@ class Intention(models.Model):
         except IntegrityError:
             return None
         return job
+
+    def update_job_worker(self, worker):
+        """Update the job for this intention.
+        Assign a new worker to the job of the intention if it doesn't exist.
+        
+        If the worker is assigned, return the Job, if not, return None
+        
+        :param worker: Worker willing to create the job.
+        :returns:      Job assigned to the worker, or None
+        """
+        job = self.job
+        job.assign_worker(worker)
+        job.refresh_from_db()
+        if job.worker == worker:
+            return job
+        return None
 
     @classmethod
     def _subfields(cls):

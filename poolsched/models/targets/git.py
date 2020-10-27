@@ -1,12 +1,11 @@
 import logging
 
-from django.db import models, IntegrityError, transaction
-from django.conf import settings
+from django.db import models, transaction
 from django.utils.timezone import now
 
 from poolsched import utils
 from ..intentions import Intention, ArchivedIntention
-from ..jobs import Job, Log
+from ..jobs import Job
 
 try:
     from mordred.backends.git import GitEnrich, GitRaw
@@ -81,16 +80,14 @@ class IGitRaw(Intention):
 
         :return:           selected job (None if none is ready)
         """
-        job = None
+
         intention = IGitRaw.objects\
             .select_related('job')\
             .exclude(job=None).filter(job__worker=None)\
             .first()
         if intention:
-            job = intention.job
-            job.worker = worker
-            job.save()
-        return job
+            return intention.update_job_worker(worker)
+        return None
 
     def create_previous(self):
         """Create all needed previous intentions (no previous intention needed)"""
@@ -194,16 +191,14 @@ class IGitEnrich(Intention):
 
         :return:           selected job (None if none is ready)
         """
-        job = None
+
         intention = IGitEnrich.objects\
             .select_related('job')\
             .exclude(job=None).filter(job__worker=None)\
             .first()
         if intention:
-            job = intention.job
-            job.worker = worker
-            job.save()
-        return job
+            return intention.update_job_worker(worker)
+        return None
 
     def create_previous(self):
         """Create all needed previous intentions"""
