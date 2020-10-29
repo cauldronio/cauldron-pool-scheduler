@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 LOG_LEVEL = logging.INFO
 
 
-
 """
 The precedence of a job is governed by the following rules:
 - Job that is in the last phase of the analysis
@@ -155,38 +154,30 @@ class SchedWorker:
             logger.info(f"Intention to run (casted): {model_to_dict(intention)} ({model_to_dict(intention.cast())})")
             completed = intention.cast().run(job)
             if completed:
-                intentions = list(job.intention_set.all())
-                arch_job = self.archive_job(job)
-                self.archive_intentions(intentions, ArchivedIntention.OK, arch_job)
+                self.archive(job, ArchivedIntention.OK)
             else:
                 job.worker = None
                 job.save()
         except Job.StopException as e:
-            logger.debug(f"Intention stopped before completing: {job}")
-            intentions = list(job.intention_set.all())
-            arch_job = self.archive_job(job)
-            self.archive_intentions(intentions, ArchivedIntention.ERROR, arch_job)
+            logger.info(f"Intention stopped before completing: {job}")
+            self.archive(job, ArchivedIntention.ERROR)
         except Exception as e:
             logger.error(f"Other exception (error?): {job}, {e}")
             traceback.print_exc()
-            intentions = list(job.intention_set.all())
-            arch_job = self.archive_job(job)
-            self.archive_intentions(intentions, ArchivedIntention.ERROR, arch_job)
+            self.archive(job, ArchivedIntention.ERROR)
         return job
 
-    def archive_job(self, job):
-        """Archive the job, it is already done"""
+    def archive(self, job, status):
+        """Archive job and intentions with the status specified"""
+        intentions = list(job.intention_set.all())
         logger.info("Archiving job: " + str(model_to_dict(job)))
         arch_job = ArchJob(created=job.created, worker=job.worker, logs=job.logs)
         arch_job.save()
-        job.delete()
-        return arch_job
-
-    def archive_intentions(self, intentions, status, arch_job):
-        """Archive the intentions, they are already done"""
         for intention in intentions:
             logger.info("Archiving intention: " + str(model_to_dict(intention)))
             intention.cast().archive(status, arch_job)
+        # delete the job after archiving the intentions to avoid race conditions
+        job.delete()
 
     def configure_logging(self):
         """Configure logging for poolsched module"""
