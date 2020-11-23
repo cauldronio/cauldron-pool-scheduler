@@ -1,5 +1,14 @@
 """
 API for poolsched (scheduling of a pool of tasks)
+
+When you instantiate a Worker, it is important to define an intention order,
+otherwise, it won't take any jobs.
+
+The precedence of a job should be governed by the following rules:
+- Job that is in the last phase of the analysis
+- Job that needs little time to run
+- Job that doesn't use a token
+
 """
 
 import logging
@@ -12,10 +21,6 @@ from django.forms.models import model_to_dict
 from django.contrib.auth import get_user_model
 
 from .models import Worker, Job, ArchJob, ArchivedIntention
-from .models.targets.github import IGHRaw, IGHEnrich
-from .models.targets.gitlab import IGLRaw, IGLEnrich
-from .models.targets.git import IGitRaw, IGitEnrich
-from .models.targets.meetup import IMeetupRaw, IMeetupEnrich
 
 User = get_user_model()
 
@@ -24,15 +29,6 @@ logging.getLogger().setLevel(logging.DEBUG)
 
 logger = logging.getLogger(__name__)
 LOG_LEVEL = logging.INFO
-
-
-"""
-The precedence of a job is governed by the following rules:
-- Job that is in the last phase of the analysis
-- Job that needs little time to run
-- Job that doesn't use a token
-"""
-INTENTION_ORDER = [IGHEnrich, IGLEnrich, IGitEnrich, IMeetupEnrich, IGHRaw, IGLRaw, IGitRaw, IMeetupRaw]
 
 
 class SchedWorker:
@@ -66,7 +62,7 @@ class SchedWorker:
         intentions = []
         for user in users:
             logger.debug(user)
-            for intention_type in INTENTION_ORDER:
+            for intention_type in self.intention_order:
                 intentions.extend(intention_type.objects.selectable_intentions(user=user, max=max))
                 if len(intentions) >= max:
                     break
@@ -132,7 +128,7 @@ class SchedWorker:
     def next_job(self):
         """Get the next job to run, among those WAITING"""
         job = None
-        for intention_type in INTENTION_ORDER:
+        for intention_type in self.intention_order:
             job = intention_type.next_job(self.worker)
             if job:
                 break
@@ -189,14 +185,17 @@ class SchedWorker:
         handler.setLevel(LOG_LEVEL)
         scheduler_log.addHandler(handler)
 
-    def __init__(self, run=False, finish=False):
+    def __init__(self, run=False, finish=False, intention_order=None):
         """Start the party
 
         :param run: run the loop, or not (default: False)
         :param finish: finish when there are no more jobs
+        :param intention_order: list of subclasses of intentions to be picked
+        by the worker in the defined order
         """
         logger.info("Starting scheduler worker...")
         worker_location = socket.gethostname()
+        self.intention_order = intention_order or []
         self.worker = Worker.objects.create(status=Worker.Status.UP, machine=worker_location)
         self.configure_logging()
         wait_task_msg = True

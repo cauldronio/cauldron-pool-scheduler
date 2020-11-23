@@ -19,8 +19,7 @@ setup(
     url='https://gitlab.com/cauldronio/cauldron-pool-scheduler',
     packages=['poolsched',
               'poolsched.models',
-              'poolsched.migrations',
-              'poolsched.models.targets'],
+              'poolsched.migrations',],
     include_package_data=True,
     keywords="django scheduler cauldron",
     classifiers=[

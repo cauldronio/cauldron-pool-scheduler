@@ -114,24 +114,6 @@ class TestDeepPrevious(TestCase):
 class TestCast(TestCase):
     """Test _subfields and _subfields_list"""
 
-    @classmethod
-    def setUpTestData(cls):
-        cls.subfields = ['ighraw', 'ighenrich',
-                         'igitraw', 'igitenrich',
-                         'iglraw', 'iglenrich',
-                         'imeetupraw', 'imeetupenrich']
-
-    def test_subfields(self):
-        """Test _subfields()"""
-
-        self.assertCountEqual(Intention._subfields(), self.subfields)
-
-    def test_subfields_list(self):
-        """Test _subfields() and _subfields_list"""
-
-        Intention._subfields()
-        self.assertCountEqual(Intention._subfields_list, self.subfields)
-
     def test_cast(self):
         """Test cast"""
 

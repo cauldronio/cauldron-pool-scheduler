@@ -2,7 +2,7 @@
 # It is configured for getting tasks from a database and running them
 # Build this container from the root of the repository
 
-FROM cauldronio/grimoirelab:0.2.45-py3.7
+FROM python:3.7
 
 ENV CODE_WORKER /code
 
@@ -20,13 +20,8 @@ RUN chmod +x /entrypoint.sh
 RUN pip install -q -r requirements.txt
 
 RUN mkdir -p /job_logs
-RUN mkdir -p /git_repositories
 RUN chown grimoirelab /job_logs
-RUN chown grimoirelab /git_repositories
 
 VOLUME ["/job_logs"]
-VOLUME ["/git_repositories"]
-
-USER grimoirelab
 
 ENTRYPOINT ["/entrypoint.sh"]

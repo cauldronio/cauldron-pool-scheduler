@@ -19,12 +19,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
 
-GIT_REPOS = os.environ.get('GIT_REPOS')
 JOB_LOGS = os.environ.get('JOB_LOGS')
-
-ES_IN_HOST = os.environ.get('ELASTIC_HOST')
-ES_IN_PORT = os.environ.get('ELASTIC_PORT')
-ES_ADMIN_PASSWORD = os.environ.get('ELASTIC_PASS')
 
 DB_NAME = os.environ.get('DB_NAME')
 DB_USER = os.environ.get('DB_USER')
