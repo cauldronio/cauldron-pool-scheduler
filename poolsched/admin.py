@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
-from .models import Worker, Job, Intention, ArchJob, ArchivedIntention
+from .models import Worker, Job, Intention, ArchJob, ArchivedIntention, Log
 
 
 def user_name(obj):
@@ -48,15 +48,21 @@ class RunningInAWorker(admin.SimpleListFilter):
 
 @admin.register(Job)
 class JobAdmin(admin.ModelAdmin):
-    list_display = ('id', 'created', 'worker', 'logs')
+    list_display = ('id', 'created', 'worker', 'logs_file')
     search_fields = ('id',)
     list_filter = ('created',)
     ordering = ('created', )
 
+    def logs_file(self, obj):
+        try:
+            return obj.logs.location
+        except AttributeError:
+            return None
+
 
 @admin.register(ArchJob)
 class ArchJobAdmin(admin.ModelAdmin):
-    list_display = ('id', 'created', 'archived', 'worker', 'worker_machine', 'logs')
+    list_display = ('id', 'created', 'archived', 'worker', 'worker_machine', 'logs_file')
     search_fields = ('id',)
     list_filter = ('created', 'archived')
     ordering = ('archived', )
@@ -67,6 +73,11 @@ class ArchJobAdmin(admin.ModelAdmin):
         except AttributeError:
             return None
 
+    def logs_file(self, obj):
+        try:
+            return obj.logs.location
+        except AttributeError:
+            return None
 
 @admin.register(Intention)
 class IntentionAdmin(admin.ModelAdmin):
@@ -100,3 +111,9 @@ class WorkerAdmin(admin.ModelAdmin):
 
     def running_job(self, obj):
         return obj.job_set.first()
+
+
+@admin.register(Log)
+class Log(admin.ModelAdmin):
+    list_display = ('id', 'location')
+    search_fields = ('id', 'location')
