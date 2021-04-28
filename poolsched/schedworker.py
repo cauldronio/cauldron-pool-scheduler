@@ -47,7 +47,10 @@ class SchedWorker:
                                 intention__previous=None,
                                 intention__job=None).distinct()
         count = q.count()
-        users = [q[i] for i in sample(range(count), min(max, count))]
+        try:
+            users = [q[i] for i in sample(range(count), min(max, count))]
+        except IndexError:
+            users = []
         return users
 
     def _get_intentions(self, users, max=1):
