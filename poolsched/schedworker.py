@@ -20,7 +20,7 @@ from random import sample
 from django.forms.models import model_to_dict
 from django.contrib.auth import get_user_model
 
-from .models import Worker, Job, ArchJob, ArchivedIntention
+from .models import Worker, Job, ArchJob, ArchivedIntention, ScheduledIntention
 
 User = get_user_model()
 
@@ -203,6 +203,8 @@ class SchedWorker:
         self.configure_logging()
         wait_task_msg = True
         while run:
+            # Create scheduled intentions
+            ScheduledIntention.objects.create_intentions(self.worker)
             if wait_task_msg:
                 logger.info("Waiting for new tasks...")
                 wait_task_msg = False

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
-from .models import Worker, Job, Intention, ArchJob, ArchivedIntention, Log
+from .models import Worker, Job, Intention, ArchJob, ArchivedIntention, Log, ScheduledIntention
 
 
 def user_name(obj):
@@ -79,9 +79,10 @@ class ArchJobAdmin(admin.ModelAdmin):
         except AttributeError:
             return None
 
+
 @admin.register(Intention)
 class IntentionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'created', 'job', user_name, previous_count, 'child')
+    list_display = ('id', 'created', 'job', 'worker', user_name, previous_count, 'child')
     search_fields = ('id', 'user__first_name')
     list_filter = ('created', RunningInAWorker)
     ordering = ('created', )
@@ -90,6 +91,12 @@ class IntentionAdmin(admin.ModelAdmin):
         try:
             child = obj.cast()
             return f"{child._meta.model_name}({child.id})"
+        except AttributeError:
+            return None
+
+    def worker(self, obj):
+        try:
+            return obj.job.worker.machine
         except AttributeError:
             return None
 
@@ -117,3 +124,17 @@ class WorkerAdmin(admin.ModelAdmin):
 class Log(admin.ModelAdmin):
     list_display = ('id', 'location')
     search_fields = ('id', 'location')
+
+
+@admin.register(ScheduledIntention)
+class ScheduledIntentionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'intention_class', 'kwargs', user_name, 'scheduled_at', 'depends_on', 'repeat', 'worker_name')
+    search_fields = ('id', 'intention_class', 'user__first_name')
+    list_filter = ('intention_class', 'scheduled_at')
+    ordering = ('-scheduled_at',)
+
+    def worker_name(self, obj):
+        try:
+            return obj.worker.machine
+        except AttributeError:
+            return None
