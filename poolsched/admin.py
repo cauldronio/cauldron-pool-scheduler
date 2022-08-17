@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from .models import Worker, Job, Intention, ArchJob, ArchivedIntention, Log, ScheduledIntention
 
@@ -82,10 +83,22 @@ class ArchJobAdmin(admin.ModelAdmin):
 
 @admin.register(Intention)
 class IntentionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'created', 'job', 'worker', user_name, previous_count, 'child')
+    list_display = ('id', 'created', 'started', 'job_id', 'worker', user_name, previous_count, 'child', 'logs')
     search_fields = ('id', 'user__first_name')
     list_filter = ('created', RunningInAWorker)
     ordering = ('created', )
+
+    def started(self, obj):
+        try:
+            return obj.job.created
+        except AttributeError:
+            return None
+
+    def job_id(self, obj):
+        try:
+            return obj.job.id
+        except AttributeError:
+            return None
 
     def child(self, obj):
         try:
@@ -100,14 +113,51 @@ class IntentionAdmin(admin.ModelAdmin):
         except AttributeError:
             return None
 
+    def logs(self, obj):
+        try:
+            url = "/logs/" + str(obj.job.id)
+            return format_html("<a href='{url}'>Show</a>", url=url)
+        except AttributeError:
+            return None
+
 
 @admin.register(ArchivedIntention)
 class ArchivedIntentionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'created', 'completed', user_name, 'status')
+    list_display = ('id', 'created', 'started', 'completed', user_name, 'status', 'worker', 'logs', 'child')
     search_fields = ('id', 'user__first_name', 'status')
     list_filter = ('status', 'created', 'completed')
-    ordering = ('completed', )
+    ordering = ('-completed', )
 
+    def started(self, obj):
+        try:
+            return obj.arch_job.created
+        except AttributeError:
+            return None
+
+    def worker(self, obj):
+        try:
+            return obj.arch_job.worker.machine
+        except AttributeError:
+            return None
+
+    def logs(self, obj):
+        try:
+            job_id = obj.arch_job.logs.location.split('-')[1].split('.')[0]
+            url = "/logs/" + str(job_id)
+            return format_html("<a href='{url}'>Show</a>", url=url)
+        except AttributeError:
+            return None
+
+    def child(self, obj):
+        for name in dir(obj):
+            try:
+                attr = getattr(obj, name)
+                if isinstance(attr, obj.__class__):
+                    url = "/admin/{}/{}/?q={}".format(attr._meta.app_label, attr._meta.model_name, attr.id)
+                    return format_html("<a href='{url}'>{name}</a>", url=url, name=attr._meta.model_name)
+            except:
+                pass
+        return obj
 
 @admin.register(Worker)
 class WorkerAdmin(admin.ModelAdmin):
