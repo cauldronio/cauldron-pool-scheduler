@@ -115,7 +115,7 @@ class IntentionAdmin(admin.ModelAdmin):
 
     def logs(self, obj):
         try:
-            url = "/logs/" + str(obj.job.id)
+            url = "/logs/" + str(obj.job.logs.id)
             return format_html("<a href='{url}'>Show</a>", url=url)
         except AttributeError:
             return None
@@ -142,8 +142,8 @@ class ArchivedIntentionAdmin(admin.ModelAdmin):
 
     def logs(self, obj):
         try:
-            job_id = obj.arch_job.logs.location.split('-')[1].split('.')[0]
-            url = "/logs/" + str(job_id)
+            log_id = obj.arch_job.logs.id
+            url = "/logs/" + str(log_id)
             return format_html("<a href='{url}'>Show</a>", url=url)
         except AttributeError:
             return None
